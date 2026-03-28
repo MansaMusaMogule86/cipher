@@ -2,6 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  BioGeneratorModal,
+  PriceOptimizerModal,
+  ContentCalendarModal,
+  FanMessageBlastModal,
+  CollabFinderModal,
+  TaxSummaryModal,
+} from "./tools/ToolModals";
+import {
+  CipherScore,
+  PhantomModeToggle,
+  DarkVault,
+  CipherRadio,
+  LegacyMode,
+  FanPredictionEngine,
+  type CipherScoreData,
+} from "./features/InsaneFeatures";
 
 export type WalletData = {
   balance: number;
@@ -95,6 +112,8 @@ export type DashboardData = {
   missingTables: string[];
   userEmail: string;
   userId: string;
+  phantomMode: boolean;
+  hasVaultPin: boolean;
 };
 
 const money = new Intl.NumberFormat("en-US", {
@@ -164,6 +183,8 @@ const SECTIONS = [
   { key: "referrals", label: "Referrals" },
   { key: "analytics", label: "Analytics" },
   { key: "tools", label: "Tools" },
+  { key: "vault", label: "Vault" },
+  { key: "legacy", label: "Legacy" },
   { key: "settings", label: "Settings" },
 ] as const;
 
@@ -187,6 +208,8 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     missingTables,
     userEmail,
     userId,
+    phantomMode,
+    hasVaultPin,
   } = data;
 
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
@@ -229,6 +252,9 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     monthEarnings: 0,
   });
 
+  // Tool modals
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+
   const handle = userEmail.split("@")[0] || userId.slice(0, 8);
   const referralLink = `cipher.so/ref/${handle}`;
   const maxChart = Math.max(...chartData.map(d => d.amount), 1);
@@ -237,6 +263,14 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     const daily = totalWeek / 7;
     return daily * 30;
   }, [chartData]);
+
+  const cipherScoreData: CipherScoreData = {
+    totalEarnings: wallet.total_earnings,
+    fanCount: fanCodeCount,
+    contentCount: contentItems.length,
+    withdrawalCount: withdrawals.length,
+    retentionRate: analytics.retentionRate,
+  };
 
   useEffect(() => {
     const duration = 800;
@@ -437,6 +471,17 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     window.location.href = "/login";
   };
 
+  // Compute CIPHER total score for legacy
+  function calcTotalScore(d: CipherScoreData) {
+    const earnings = Math.min(Math.floor((d.totalEarnings / 10000) * 200), 200);
+    const fans = Math.min(Math.floor((d.fanCount / 100) * 200), 200);
+    const content = Math.min(Math.floor((d.contentCount / 20) * 150), 150);
+    const payouts = Math.min(Math.floor((d.withdrawalCount / 5) * 150), 150);
+    const retention = Math.min(Math.floor((d.retentionRate / 100) * 300), 300);
+    return earnings + fans + content + payouts + retention;
+  }
+  const totalCipherScore = calcTotalScore(cipherScoreData);
+
   return (
     <>
       <div id="db-cursor" style={{ position: "fixed", width: "8px", height: "8px", background: "var(--gold)", borderRadius: "50%", pointerEvents: "none", zIndex: 99999, top: "-100px", left: "-100px", transform: "translate(-50%,-50%)", mixBlendMode: "screen" }} />
@@ -485,6 +530,12 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
           </nav>
 
           <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.055)" }}>
+            <div style={{ marginBottom: "10px" }}>
+              <PhantomModeToggle userId={userId} initialPhantom={phantomMode} />
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <CipherRadio />
+            </div>
             <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px", textTransform: "uppercase" }}>Signed in as</div>
             <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "14px", wordBreak: "break-all", lineHeight: 1.4 }}>{userEmail}</div>
             <button type="button" onClick={handleSignOut} style={{ ...mono, width: "100%", padding: "9px", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "3px", color: "var(--dim)", fontSize: "10px", letterSpacing: "0.15em", cursor: "pointer", transition: "all 0.2s" }}>SIGN OUT</button>
@@ -544,6 +595,8 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "dashboard" && (
               <>
+                <CipherScore data={cipherScoreData} />
+
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: "12px" }}>
                   {[
                     { label: "Total Earnings", value: money.format(wallet.total_earnings), sub: "Net processed" },
@@ -807,6 +860,12 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "analytics" && (
               <div style={{ display: "grid", gap: "12px" }}>
+                <FanPredictionEngine
+                  totalEarnings={wallet.total_earnings}
+                  fanCount={fanCodeCount}
+                  retentionRate={analytics.retentionRate}
+                  chartTrend={chartTrend}
+                />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "10px" }}>
                   <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "14px" }}>
                     <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>TOTAL PAGE VIEWS</div>
@@ -853,21 +912,62 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
             )}
 
             {activeSection === "tools" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "10px" }}>
-                {[
-                  { title: "Bio Generator", desc: "AI writes creator bio from 3 keywords" },
-                  { title: "Price Optimizer", desc: "Optimal price recommendation for your audience" },
-                  { title: "Content Calendar", desc: "7-day planning board" },
-                  { title: "Fan Message Blast", desc: "Broadcast to active fan codes" },
-                  { title: "Collaboration Finder", desc: "Discover creators by category" },
-                  { title: "Tax Summary", desc: "Export earnings CSV" },
-                ].map(tool => (
-                  <button key={tool.title} type="button" style={{ textAlign: "left", background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "14px", color: "var(--white)", cursor: "pointer" }}>
-                    <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "var(--gold-dim)", marginBottom: "6px" }}>CREATOR TOOL</div>
-                    <div style={{ ...disp, fontSize: "26px", color: "var(--gold)" }}>{tool.title}</div>
-                    <div style={{ fontSize: "12px", color: "var(--dim)", marginTop: "8px" }}>{tool.desc}</div>
-                  </button>
-                ))}
+              <>
+                {activeTool === "bio" && <BioGeneratorModal userId={userId} onClose={() => setActiveTool(null)} />}
+                {activeTool === "price" && <PriceOptimizerModal onClose={() => setActiveTool(null)} />}
+                {activeTool === "calendar" && <ContentCalendarModal userId={userId} onClose={() => setActiveTool(null)} />}
+                {activeTool === "blast" && <FanMessageBlastModal userId={userId} fanCodeCount={fanCodeCount} onClose={() => setActiveTool(null)} />}
+                {activeTool === "collab" && <CollabFinderModal userId={userId} onClose={() => setActiveTool(null)} />}
+                {activeTool === "tax" && <TaxSummaryModal transactions={transactions} onClose={() => setActiveTool(null)} />}
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "10px" }}>
+                  {[
+                    { key: "bio", title: "Bio Generator", desc: "AI writes 3 creator bio variations from keywords. Pick your favorite, save it.", icon: "✦" },
+                    { key: "price", title: "Price Optimizer", desc: "Analyzes your real transaction data. Recommends optimal price with AI confidence score.", icon: "◈" },
+                    { key: "calendar", title: "Content Calendar", desc: "7-day planning board. Click each day, assign content drops, schedule to DB.", icon: "⬡" },
+                    { key: "blast", title: "Fan Message Blast", desc: "Broadcast to all fans, active fans, or top spenders instantly.", icon: "▲" },
+                    { key: "collab", title: "Collaboration Finder", desc: "Discover other CIPHER creators. Send split proposals with custom cut percentages.", icon: "◎" },
+                    { key: "tax", title: "Tax Summary", desc: "Full earnings breakdown by year. Platform fee calc. Export CSV for your accountant.", icon: "≡" },
+                  ].map(tool => (
+                    <button
+                      key={tool.key}
+                      type="button"
+                      onClick={() => setActiveTool(tool.key)}
+                      style={{ textAlign: "left", background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "18px", color: "var(--white)", cursor: "pointer", transition: "border-color 0.2s" }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(200,169,110,0.4)")}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.055)")}
+                    >
+                      <div style={{ fontSize: "24px", marginBottom: "8px", color: "var(--gold)" }}>{tool.icon}</div>
+                      <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "var(--gold-dim)", marginBottom: "6px" }}>CREATOR TOOL</div>
+                      <div style={{ ...disp, fontSize: "24px", color: "var(--gold)", marginBottom: "8px" }}>{tool.title}</div>
+                      <div style={{ fontSize: "12px", color: "var(--dim)", lineHeight: 1.6 }}>{tool.desc}</div>
+                      <div style={{ marginTop: "14px", ...mono, fontSize: "10px", color: "rgba(200,169,110,0.6)", letterSpacing: "0.1em" }}>OPEN TOOL →</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activeSection === "vault" && (
+              <div style={{ display: "grid", gap: "12px" }}>
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "18px" }}>
+                  <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.14em", color: "var(--gold-dim)", marginBottom: "8px" }}>DARK VAULT</div>
+                  <div style={{ fontSize: "13px", color: "var(--dim)", marginBottom: "16px" }}>
+                    A 4-digit PIN-protected space only you can access. SHA-256 hashed. Never stored in plaintext.
+                  </div>
+                  <DarkVault userId={userId} hasPin={hasVaultPin} />
+                </div>
+              </div>
+            )}
+
+            {activeSection === "legacy" && (
+              <div style={{ display: "grid", gap: "12px" }}>
+                <LegacyMode
+                  totalScore={totalCipherScore}
+                  userEmail={userEmail}
+                  totalEarnings={wallet.total_earnings}
+                  fanCount={fanCodeCount}
+                />
               </div>
             )}
 

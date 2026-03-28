@@ -40,6 +40,16 @@ export default async function DashboardPage() {
     referral_income: safeNum(walletRow?.referral_income),
   };
 
+  // Fetch creator profile for phantom mode + vault pin
+  const { data: creatorProfile } = await supabase
+    .from("creator_applications")
+    .select("phantom_mode, vault_pin_hash")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const phantomMode = Boolean(creatorProfile?.phantom_mode ?? false);
+  const hasVaultPin = Boolean(creatorProfile?.vault_pin_hash);
+
   const { data: fanCodesRaw, count: fanCodeCount, error: fanErr } = await supabase
     .from("fan_codes")
     .select("id, code, status, created_at", { count: "exact" })
@@ -241,6 +251,8 @@ export default async function DashboardPage() {
     missingTables: Array.from(missingTables),
     userEmail: user.email ?? "",
     userId: user.id,
+    phantomMode,
+    hasVaultPin,
   };
 
   return <DashboardClient data={dashboardData} />;
