@@ -278,10 +278,10 @@ export default function Home() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "var(--border)", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
             {[
-              { num:"01", title:"Fans stay", em:"anonymous. Always.", text:"No email. No account. No credit card trail. Every fan gets a unique code — FAN-4729 — that's their entire identity. They pay, they access. Nothing else required.", callout:"OnlyFans requires full identity verification for every fan. CIPHER requires nothing." },
+              { num:"01", title:"Fans stay", em:"anonymous. Always.", text:"No email. No account. No credit card trail. Every fan gets a unique code — FAN-4729 — that's their entire identity. They pay, they access. Nothing else required.", callout:"No forms. No tracking. No identity required — ever." },
               { num:"02", title:"Splits happen", em:"automatically.", text:"Every payment — card, crypto, wallet — splits in real time. Creator gets their share. Platform takes its cut. Referrer earns their commission. All in one transaction.", callout:"You refer a creator earning $10K/month → you earn $400/month. Forever. No cap." },
               { num:"03", title:"Three tiers.", em:"Real unlocks.", text:"CIPHER, LEGEND, APEX — each tier is a completely different operating level. Different fees, different tools, different payout speed. Not vanity badges. Actual leverage.", callout:"APEX creators pay just 8%. No other platform comes close." },
-              { num:"04", title:"Get paid in", em:"190 countries.", text:"Stripe if you have it. Wise if you're in Africa or LatAm. USDC on Polygon if you want instant and borderless. Your earnings always land — no matter where you are.", callout:"OnlyFans can't pay a Nigerian creator. CIPHER can pay anyone, anywhere, in 30 seconds." },
+              { num:"04", title:"Get paid in", em:"190 countries.", text:"Stripe if you have it. Wise if you're in Africa or LatAm. USDC on Polygon if you want instant and borderless. Your earnings always land — no matter where you are.", callout:"Card, crypto, or wallet — your earnings reach you in seconds, anywhere on earth." },
             ].map(({ num, title, em, text, callout }, i) => (
               <div key={num} className={`reveal reveal-delay-${i % 2}`}
                 style={{ background: "var(--card)", padding: "48px 44px", position: "relative", overflow: "hidden", transition: "background 0.25s" }}
@@ -306,7 +306,7 @@ export default function Home() {
       {/* ══ NUMBERS ══ */}
       <div style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ maxWidth: "1320px", margin: "0 auto", padding: "100px 56px", display: "grid", gridTemplateColumns: "repeat(4,1fr)" }}>
-          {[["88%","Creator keeps","vs 80% on OnlyFans and Fansly"],["∞","Referral lifetime","Every competitor caps or expires it"],["0","Fan data collected","No email, no name, no account ever"],["190","Countries supported","Crypto payouts reach where banks don't"]].map(([val, label, sub], i) => (
+          {[["88%","Creator keeps","Platform takes just 12% — nothing more"],["∞","Referral lifetime","Every competitor caps or expires it"],["0","Fan data collected","No email, no name, no account ever"],["190","Countries supported","Crypto payouts reach where banks don't"]].map(([val, label, sub], i) => (
             <div key={i} className={`reveal reveal-delay-${i}`} style={{ padding: "40px 32px", textAlign: "center", borderLeft: i > 0 ? "1px solid var(--border)" : "none" }}>
               <span style={{ display: "block", ...disp, fontSize: "clamp(48px,6vw,80px)", fontWeight: 300, lineHeight: 1, marginBottom: "12px", ...gold }}>{val}</span>
               <span style={{ ...mono, fontSize: "10px", letterSpacing: "0.2em", textTransform: "uppercase" as const, ...dim, display: "block", marginBottom: "8px" }}>{label}</span>
