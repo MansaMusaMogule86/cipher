@@ -104,12 +104,19 @@ export function PhantomModeToggle({ userId, initialPhantom }: { userId: string; 
     setLoading(true);
     try {
       const supabase = createClient();
-      await supabase
+      const { error } = await supabase
         .from("creator_applications")
         .upsert({ user_id: userId, phantom_mode: !active }, { onConflict: "user_id" });
+
+      if (error) {
+        console.error("Phantom mode upsert error:", error);
+        return;
+      }
+
       setActive(v => !v);
     } catch (err) {
       console.error("Phantom mode toggle failed:", err);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -144,12 +151,78 @@ export function PhantomModeToggle({ userId, initialPhantom }: { userId: string; 
 }
 
 // ─── Dark Vault ────────────────────────────────────────────────────────────────
-async function sha256(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+const PIN_KDF_VERSION = "pbkdf2-v1";
+const PIN_KDF_ITERATIONS = 210000;
+const PIN_KDF_HASH = "SHA-256";
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  bytes.forEach(byte => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function derivePinKey(pin: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+  const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pin),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: saltBuffer,
+      iterations,
+      hash: PIN_KDF_HASH,
+    },
+    keyMaterial,
+    256
+  );
+
+  return new Uint8Array(bits);
+}
+
+async function createPinRecord(pin: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const derivedKey = await derivePinKey(pin, salt, PIN_KDF_ITERATIONS);
+  return `${PIN_KDF_VERSION}$${PIN_KDF_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(derivedKey)}`;
+}
+
+async function verifyPinRecord(pin: string, storedRecord: string): Promise<boolean> {
+  const parts = storedRecord.split("$");
+  if (parts.length !== 4) return false;
+
+  const [version, iterText, saltB64, keyB64] = parts;
+  if (version !== PIN_KDF_VERSION) return false;
+
+  const iterations = Number(iterText);
+  if (!Number.isFinite(iterations) || iterations <= 0) return false;
+
+  const salt = base64ToBytes(saltB64);
+  const expected = base64ToBytes(keyB64);
+  const actual = await derivePinKey(pin, salt, iterations);
+
+  if (actual.length !== expected.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < actual.length; i += 1) {
+    diff |= actual[i] ^ expected[i];
+  }
+  return diff === 0;
 }
 
 export function DarkVault({ userId, hasPin }: { userId: string; hasPin: boolean }) {
@@ -177,14 +250,29 @@ export function DarkVault({ userId, hasPin }: { userId: string; hasPin: boolean 
     if (phase === "lock") {
       // Verify against stored hash
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("creator_applications")
         .select("vault_pin_hash")
         .eq("user_id", userId)
         .maybeSingle();
-      const storedHash = data?.vault_pin_hash ?? "";
-      const enteredHash = await sha256(entered);
-      if (enteredHash === storedHash) {
+
+      if (error) {
+        console.error("Vault PIN fetch failed:", error);
+        setMsg("Vault verification failed. Try again.");
+        setPin("");
+        return;
+      }
+
+      const storedRecord = data?.vault_pin_hash ?? "";
+      if (!storedRecord) {
+        setMsg("No vault PIN found. Set a new PIN.");
+        setPhase("set");
+        setPin("");
+        return;
+      }
+
+      const verified = await verifyPinRecord(entered, storedRecord);
+      if (verified) {
         setUnlocked(true);
         setPhase("open");
         setMsg("");
@@ -200,15 +288,25 @@ export function DarkVault({ userId, hasPin }: { userId: string; hasPin: boolean 
     } else if (phase === "confirm") {
       if (entered === confirmPin) {
         setSavingPin(true);
-        const hash = await sha256(entered);
-        const supabase = createClient();
-        await supabase
-          .from("creator_applications")
-          .upsert({ user_id: userId, vault_pin_hash: hash }, { onConflict: "user_id" });
-        setSavingPin(false);
-        setUnlocked(true);
-        setPhase("open");
-        setMsg("Vault sealed. PIN set.");
+        try {
+          const pinRecord = await createPinRecord(entered);
+          const supabase = createClient();
+          const { error } = await supabase
+            .from("creator_applications")
+            .upsert({ user_id: userId, vault_pin_hash: pinRecord }, { onConflict: "user_id" });
+
+          if (error) {
+            console.error("Vault PIN save failed:", error);
+            setMsg("Could not save PIN. Please try again.");
+            return;
+          }
+
+          setUnlocked(true);
+          setPhase("open");
+          setMsg("Vault sealed. PIN set.");
+        } finally {
+          setSavingPin(false);
+        }
       } else {
         setShake(true);
         setTimeout(() => { setShake(false); setPin(""); setConfirmPin(""); setPhase("set"); }, 500);
@@ -388,6 +486,33 @@ export function LegacyMode({ totalScore, userEmail, totalEarnings, fanCount }: {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const fontSizePx = (font: string) => {
+      const match = font.match(/(\d+(?:\.\d+)?)px/);
+      return match ? Number(match[1]) : 16;
+    };
+
+    const drawTextWithLetterSpacing = (
+      c: CanvasRenderingContext2D,
+      text: string,
+      x: number,
+      y: number,
+      letterSpacingPx: number
+    ) => {
+      if (!text) return;
+      const glyphs = Array.from(text);
+      const widths = glyphs.map(glyph => c.measureText(glyph).width);
+      const totalWidth = widths.reduce((sum, w) => sum + w, 0) + letterSpacingPx * Math.max(glyphs.length - 1, 0);
+
+      let cursorX = x;
+      if (c.textAlign === "center") cursorX = x - totalWidth / 2;
+      if (c.textAlign === "right" || c.textAlign === "end") cursorX = x - totalWidth;
+
+      glyphs.forEach((glyph, idx) => {
+        c.fillText(glyph, cursorX, y);
+        cursorX += widths[idx] + letterSpacingPx;
+      });
+    };
+
     canvas.width = 800;
     canvas.height = 500;
 
@@ -416,13 +541,11 @@ export function LegacyMode({ totalScore, userEmail, totalEarnings, fanCount }: {
     ctx.fillStyle = "#c8a96e";
     ctx.font = "bold 14px monospace";
     ctx.textAlign = "center";
-    ctx.letterSpacing = "0.3em";
-    ctx.fillText("CIPHER PLATFORM", 400, 70);
+    drawTextWithLetterSpacing(ctx, "CIPHER PLATFORM", 400, 70, fontSizePx(ctx.font) * 0.3);
 
     // Certificate of Legacy
     ctx.fillStyle = "#e8d5a8";
     ctx.font = "italic 38px Georgia";
-    ctx.letterSpacing = "0";
     ctx.fillText("Certificate of Legacy", 400, 130);
 
     // This certifies
@@ -534,6 +657,33 @@ export function LegacyMode({ totalScore, userEmail, totalEarnings, fanCount }: {
 }
 
 // ─── Fan Prediction Engine ─────────────────────────────────────────────────────
+type BestPostDayPrediction = {
+  day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+  confidence: number;
+  direction: "up" | "down" | "neutral";
+};
+
+function computeBestPostDay(engagementData: {
+  totalEarnings: number;
+  fanCount: number;
+  retentionRate: number;
+  chartTrend: "up" | "down";
+}): BestPostDayPrediction {
+  const days: BestPostDayPrediction["day"][] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const seed =
+    Math.round(engagementData.totalEarnings) +
+    engagementData.fanCount * 17 +
+    Math.round(engagementData.retentionRate * 10) * 7 +
+    (engagementData.chartTrend === "up" ? 29 : 11);
+
+  const day = days[Math.abs(seed) % days.length];
+  const confidence = Math.max(55, Math.min(92, Math.round(58 + engagementData.retentionRate * 0.34 + (engagementData.chartTrend === "up" ? 8 : -4))));
+  const direction: BestPostDayPrediction["direction"] =
+    engagementData.chartTrend === "up" ? "up" : engagementData.retentionRate >= 45 ? "neutral" : "down";
+
+  return { day, confidence, direction };
+}
+
 export function FanPredictionEngine({ totalEarnings, fanCount, retentionRate, chartTrend }: {
   totalEarnings: number;
   fanCount: number;
@@ -558,6 +708,12 @@ export function FanPredictionEngine({ totalEarnings, fanCount, retentionRate, ch
       // Build prediction cards from response + computed data
       const nextMonthRevenue = totalEarnings * (chartTrend === "up" ? 1.18 : 0.85);
       const fanGrowth = Math.round(fanCount * (retentionRate / 100) * 1.2);
+      const bestPostDay = computeBestPostDay({
+        totalEarnings,
+        fanCount,
+        retentionRate,
+        chartTrend,
+      });
 
       const computed = [
         {
@@ -586,9 +742,9 @@ export function FanPredictionEngine({ totalEarnings, fanCount, retentionRate, ch
         },
         {
           title: "Best Post Day",
-          value: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][Math.floor(Math.random() * 7)],
-          confidence: 72,
-          direction: "neutral" as const,
+          value: bestPostDay.day,
+          confidence: bestPostDay.confidence,
+          direction: bestPostDay.direction,
         },
       ];
 

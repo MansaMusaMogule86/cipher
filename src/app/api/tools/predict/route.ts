@@ -7,22 +7,38 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Fetch creator's real transaction data for analysis
-  const { data: txData } = await supabase
+  const { data: txData, error: txError } = await supabase
     .from("transactions")
     .select("amount, type, status, created_at, fan_code")
     .eq("creator_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const { data: walletData } = await supabase
+  const { data: walletData, error: walletError } = await supabase
     .from("creator_wallets")
     .select("balance, total_earnings, referral_income")
     .eq("creator_id", user.id)
     .maybeSingle();
 
+  if (txError || walletError) {
+    console.error("Predict route database error", { txError, walletError });
+    return NextResponse.json({ error: "Failed to load analytics data" }, { status: 500 });
+  }
+
   const body = await req.json().catch(() => ({}));
-  const currentPrice = Number(body.currentPrice ?? 0);
-  const contentType = String(body.contentType ?? "subscription");
+  const parsedPrice = Number.parseFloat(String(body.currentPrice ?? "0").trim());
+  const currentPrice = Number.isFinite(parsedPrice) && parsedPrice >= 0 && parsedPrice <= 100000
+    ? parsedPrice
+    : 0;
+
+  const rawContentType = String(body.contentType ?? "subscription")
+    .trim()
+    .replace(/[\r\n\t\0]+/g, " ")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .slice(0, 32)
+    .toLowerCase();
+  const allowedContentTypes = new Set(["subscription", "tip", "unlock", "one-time"]);
+  const contentType = allowedContentTypes.has(rawContentType) ? rawContentType : "subscription";
 
   const transactions = txData ?? [];
   const totalRevenue = transactions.reduce((s, t) => s + Number(t.amount ?? 0), 0);
@@ -56,9 +72,15 @@ PREDICTION_1: [specific outcome prediction]
 PREDICTION_2: [specific outcome prediction]
 PREDICTION_3: [specific outcome prediction]`;
 
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   try {
+    const abortController = new AbortController();
+    timeoutId = setTimeout(() => abortController.abort(), 10000);
+
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: abortController.signal,
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
@@ -71,6 +93,8 @@ PREDICTION_3: [specific outcome prediction]`;
         messages: [{ role: "user", content: userPrompt }],
       }),
     });
+    clearTimeout(timeoutId);
+    timeoutId = null;
 
     if (!res.ok) {
       return NextResponse.json({ error: "AI request failed" }, { status: 502 });
@@ -100,7 +124,12 @@ PREDICTION_3: [specific outcome prediction]`;
         conversionRate: conversionRate.toFixed(1),
       },
     });
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json({ error: "AI request timed out" }, { status: 504 });
+    }
     return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }

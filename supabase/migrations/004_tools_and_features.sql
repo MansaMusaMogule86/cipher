@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS fan_messages (
 ALTER TABLE fan_messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "fan_messages_creator_all" ON fan_messages;
 CREATE POLICY "fan_messages_creator_all" ON fan_messages
-  FOR ALL USING (auth.uid() = creator_id);
+  FOR ALL
+  USING (auth.uid() = creator_id)
+  WITH CHECK (auth.uid() = creator_id);
 
 -- Collab Proposals table (Collaboration Finder tool)
 CREATE TABLE IF NOT EXISTS collab_proposals (
@@ -38,7 +40,25 @@ CREATE TABLE IF NOT EXISTS collab_proposals (
 ALTER TABLE collab_proposals ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "collab_proposals_creator_all" ON collab_proposals;
 CREATE POLICY "collab_proposals_creator_all" ON collab_proposals
-  FOR ALL USING (auth.uid() = from_creator_id);
+  FOR ALL
+  USING (
+    auth.uid() = from_creator_id
+    OR EXISTS (
+      SELECT 1
+      FROM creator_applications ca
+      WHERE ca.user_id = auth.uid()
+        AND lower(regexp_replace(coalesce(ca.handle, ''), '^@', '')) = lower(regexp_replace(coalesce(collab_proposals.to_handle, ''), '^@', ''))
+    )
+  )
+  WITH CHECK (
+    auth.uid() = from_creator_id
+    OR EXISTS (
+      SELECT 1
+      FROM creator_applications ca
+      WHERE ca.user_id = auth.uid()
+        AND lower(regexp_replace(coalesce(ca.handle, ''), '^@', '')) = lower(regexp_replace(coalesce(collab_proposals.to_handle, ''), '^@', ''))
+    )
+  );
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_fan_messages_creator ON fan_messages(creator_id);

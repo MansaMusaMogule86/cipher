@@ -41,11 +41,15 @@ export default async function DashboardPage() {
   };
 
   // Fetch creator profile for phantom mode + vault pin
-  const { data: creatorProfile } = await supabase
+  const { data: creatorProfile, error: creatorProfileErr } = await supabase
     .from("creator_applications")
     .select("phantom_mode, vault_pin_hash")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (creatorProfileErr && isMissingTable(creatorProfileErr.code, creatorProfileErr.message)) {
+    missingTables.add("creator_applications");
+  }
 
   const phantomMode = Boolean(creatorProfile?.phantom_mode ?? false);
   const hasVaultPin = Boolean(creatorProfile?.vault_pin_hash);

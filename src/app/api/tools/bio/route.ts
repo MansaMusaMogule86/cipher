@@ -34,9 +34,28 @@ BIO_3: [bio here]`;
 
   const stream = new ReadableStream({
     async start(controller) {
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        abortController.abort();
+      }, 30000);
+
+      const processSseLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) return;
+        const data = trimmed.slice(6);
+        if (data === "[DONE]") return;
+        try {
+          const json = JSON.parse(data);
+          if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
+            controller.enqueue(encoder.encode(json.delta.text));
+          }
+        } catch {}
+      };
+
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
+          signal: abortController.signal,
           headers: {
             "Content-Type": "application/json",
             "x-api-key": apiKey,
@@ -49,6 +68,7 @@ BIO_3: [bio here]`;
             messages: [{ role: "user", content: prompt }],
           }),
         });
+        clearTimeout(timeoutId);
 
         if (!res.ok || !res.body) {
           controller.enqueue(encoder.encode("Generation failed."));
@@ -58,25 +78,34 @@ BIO_3: [bio here]`;
 
         const reader = res.body.getReader();
         const dec = new TextDecoder();
+        let buffer = "";
         while (true) {
           const { value, done } = await reader.read();
-          if (done) break;
-          const chunk = dec.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
+          if (abortController.signal.aborted) break;
+          if (done) {
+            buffer += dec.decode();
+            break;
+          }
+          buffer += dec.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
           for (const line of lines) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const json = JSON.parse(data);
-              if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
-                controller.enqueue(encoder.encode(json.delta.text));
-              }
-            } catch {}
+            processSseLine(line);
           }
         }
+
+        if (buffer.trim().length > 0) {
+          processSseLine(buffer);
+        }
         controller.close();
-      } catch {
-        controller.enqueue(encoder.encode("Generation failed."));
+      } catch (error: unknown) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === "AbortError") {
+          controller.enqueue(encoder.encode("Generation timed out. Please try again."));
+        } else {
+          controller.enqueue(encoder.encode("Generation failed."));
+        }
         controller.close();
       }
     },

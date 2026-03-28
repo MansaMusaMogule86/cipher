@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -10,6 +10,8 @@ const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD
 
 // ─── Shared Modal Shell ────────────────────────────────────────────────────────
 function Modal({ title, sub, onClose, children }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode }) {
+  const titleId = useId();
+
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", esc);
@@ -18,16 +20,20 @@ function Modal({ title, sub, onClose, children }: { title: string; sub?: string;
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
     >
       <div style={{ width: "100%", maxWidth: "580px", maxHeight: "80vh", overflowY: "auto", background: "#0d0d18", border: "1px solid rgba(200,169,110,0.3)", borderRadius: "12px", padding: "28px", position: "relative" }}>
         <button
+          aria-label="Close"
           onClick={onClose}
           style={{ position: "absolute", top: "16px", right: "16px", background: "transparent", border: "none", color: "var(--dim)", fontSize: "20px", cursor: "pointer", lineHeight: 1 }}
         >×</button>
         <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.25em", color: "var(--gold-dim)", marginBottom: "4px" }}>CREATOR TOOL</div>
-        <div style={{ ...disp, fontSize: "32px", color: "var(--gold)", marginBottom: sub ? "4px" : "20px" }}>{title}</div>
+        <div id={titleId} style={{ ...disp, fontSize: "32px", color: "var(--gold)", marginBottom: sub ? "4px" : "20px" }}>{title}</div>
         {sub && <div style={{ fontSize: "13px", color: "var(--dim)", marginBottom: "20px" }}>{sub}</div>}
         {children}
       </div>
@@ -45,9 +51,21 @@ export function BioGeneratorModal({ userId, onClose }: { userId: string; onClose
   const [selectedBio, setSelectedBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const generationControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      generationControllerRef.current?.abort();
+      generationControllerRef.current = null;
+    };
+  }, []);
 
   const generate = async () => {
     if (!keywords.trim()) { setMsg("Enter at least one keyword."); return; }
+    generationControllerRef.current?.abort();
+    const controller = new AbortController();
+    generationControllerRef.current = controller;
+
     setLoading(true);
     setOutput("");
     setBios([]);
@@ -56,6 +74,7 @@ export function BioGeneratorModal({ userId, onClose }: { userId: string; onClose
     try {
       const res = await fetch("/api/tools/bio", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keywords: keywords.trim(), category }),
       });
@@ -64,12 +83,15 @@ export function BioGeneratorModal({ userId, onClose }: { userId: string; onClose
       const dec = new TextDecoder();
       let full = "";
       while (true) {
+        if (controller.signal.aborted) break;
         const { value, done } = await reader.read();
         if (done) break;
+        if (controller.signal.aborted) break;
         const chunk = dec.decode(value, { stream: true });
         full += chunk;
         setOutput(full);
       }
+      if (controller.signal.aborted) return;
       // Parse the 3 bios
       const parsed: string[] = [];
       const linesArr = full.split("\n");
@@ -80,9 +102,16 @@ export function BioGeneratorModal({ userId, onClose }: { userId: string; onClose
       if (parsed.length === 0) parsed.push(full.trim());
       setBios(parsed);
       setSelectedBio(parsed[0] ?? "");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setMsg("Generation canceled.");
+        return;
+      }
       setMsg("Generation failed. Try again.");
     } finally {
+      if (generationControllerRef.current === controller) {
+        generationControllerRef.current = null;
+      }
       setLoading(false);
     }
   };
@@ -175,6 +204,12 @@ export function PriceOptimizerModal({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState("");
 
   const analyze = async () => {
+    const parsedPrice = Number.parseFloat(currentPrice.trim());
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      setErr("Please enter a valid non-negative price.");
+      return;
+    }
+
     setLoading(true);
     setErr("");
     setResult(null);
@@ -182,7 +217,7 @@ export function PriceOptimizerModal({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/tools/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPrice: Number(currentPrice), contentType }),
+        body: JSON.stringify({ currentPrice: parsedPrice, contentType }),
       });
       if (!res.ok) throw new Error("failed");
       const json = await res.json();
@@ -397,14 +432,21 @@ export function FanMessageBlastModal({ userId, fanCodeCount, onClose }: { userId
   const selectedSeg = segmentOptions.find(s => s.value === segment)!;
 
   const blast = async () => {
-    if (!message.trim()) { setMsg("Write a message first."); return; }
+    const normalizedMessage = message.trim();
+    if (!normalizedMessage) { setMsg("Write a message first."); return; }
+    if (normalizedMessage.length > 500) {
+      setMsg("Message must be 500 characters or less.");
+      setMessage(normalizedMessage.slice(0, 500));
+      return;
+    }
+
     setSending(true);
     setMsg("");
     try {
       const supabase = createClient();
       const { error } = await supabase.from("fan_messages").insert({
         creator_id: userId,
-        message: message.trim(),
+        message: normalizedMessage,
         segment,
         recipient_count: selectedSeg.count,
       });
@@ -441,6 +483,7 @@ export function FanMessageBlastModal({ userId, fanCodeCount, onClose }: { userId
         <textarea
           value={message}
           onChange={e => setMessage(e.target.value)}
+          maxLength={500}
           placeholder="What do you want to tell your fans..."
           rows={4}
           style={{ background: "#0a0a14", border: "1px solid rgba(255,255,255,0.1)", color: "var(--white)", borderRadius: "6px", padding: "10px", width: "100%", fontSize: "13px", resize: "vertical", lineHeight: 1.6 }}
@@ -592,6 +635,12 @@ export function TaxSummaryModal({ transactions, onClose }: {
   }));
 
   const downloadCSV = () => {
+    const escapeField = (value: unknown) => {
+      const text = String(value ?? "");
+      const escaped = text.replace(/"/g, '""');
+      return /[",\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
+    };
+
     const headers = ["Date", "Fan Code", "Type", "Amount", "Status", "Platform Fee (15%)", "Net"];
     const rows = yearTx.map(t => [
       String(t.created_at).slice(0, 10),
@@ -602,7 +651,9 @@ export function TaxSummaryModal({ transactions, onClose }: {
       (t.amount * 0.15).toFixed(2),
       (t.amount * 0.85).toFixed(2),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map(row => row.map(cell => escapeField(cell)).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
