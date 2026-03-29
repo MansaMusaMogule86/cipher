@@ -1150,7 +1150,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
             <div style={{ marginBottom: "10px" }}>
               <PhantomModeToggle userId={userId} initialPhantom={phantomMode} />
             </div>
-            <div style={{ marginBottom: "10px", width: "100%", minWidth: 0, maxWidth: "100%", maxHeight: "120px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ marginBottom: "10px", width: "100%", minWidth: 0, maxWidth: "100%", maxHeight: "90px", overflowY: "auto", overflowX: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <CipherRadio />
             </div>
             <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px", textTransform: "uppercase" }}>Signed in as</div>
