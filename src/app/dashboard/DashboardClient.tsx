@@ -1106,7 +1106,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
       <Cursor />
 
       <div style={{ display: "flex", minHeight: "100vh", background: "#020203", backgroundImage: "radial-gradient(circle at 10% 5%, rgba(200,169,110,0.09), transparent 40%)" }}>
-        <aside className="db-sidebar" style={{ width: "220px", position: "fixed", top: 0, left: 0, bottom: 0, background: "rgba(8,8,15,0.98)", borderRight: "1px solid rgba(255,255,255,0.055)", display: "flex", flexDirection: "column", zIndex: 100, backdropFilter: "blur(12px)" }}>
+        <aside className="db-sidebar" style={{ width: "220px", position: "fixed", top: 0, left: 0, bottom: 0, background: "rgba(8,8,15,0.98)", borderRight: "1px solid rgba(255,255,255,0.055)", display: "flex", flexDirection: "column", zIndex: 100, backdropFilter: "blur(12px)", overflowY: "auto", minHeight: 0 }}>
           <div style={{ padding: "24px 20px", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
             <Link href="/" style={{ ...mono, fontSize: "13px", fontWeight: 500, letterSpacing: "0.3em", color: "var(--gold)", textDecoration: "none", display: "block", marginBottom: "3px" }}>CIPHER</Link>
             <div style={{ ...mono, fontSize: "10px", color: "var(--dim)", letterSpacing: "0.12em" }}>Creator Console</div>
@@ -1146,11 +1146,11 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
             })}
           </nav>
 
-          <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.055)" }}>
+          <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.055)", display: "flex", flexDirection: "column", gap: "10px", minHeight: 0 }}>
             <div style={{ marginBottom: "10px" }}>
               <PhantomModeToggle userId={userId} initialPhantom={phantomMode} />
             </div>
-            <div style={{ marginBottom: "10px", width: "100%", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ marginBottom: "10px", width: "100%", minWidth: 0, maxWidth: "100%", maxHeight: "120px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <CipherRadio />
             </div>
             <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px", textTransform: "uppercase" }}>Signed in as</div>

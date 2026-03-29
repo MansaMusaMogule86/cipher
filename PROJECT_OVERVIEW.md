@@ -1,0 +1,21 @@
+# Project Overview
+
+CIPHER is a creator economy platform focused on maximizing creator earnings, privacy, and global reach.
+
+## Key Features
+- 88% creator payouts
+- Anonymous fan codes
+- Crypto payment rails to 190 countries
+- Social media integrations (Twitter, Instagram, Telegram, YouTube, TikTok)
+- Modern dashboard and analytics
+
+## Goals
+- Disrupt traditional creator platforms with lower fees and better privacy
+- Empower creators to reach global audiences
+- Provide seamless onboarding and payout experiences
+
+## Roadmap
+1. MVP launch with core features
+2. Expand social integrations
+3. Add advanced analytics and marketing tools
+4. Scale to global user base
