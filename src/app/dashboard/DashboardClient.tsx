@@ -23,6 +23,8 @@ import {
   FanCodeGenerator,
   DailyBriefWidget,
   ContentIdeasWidget,
+  FanPersonasWidget,
+  DynamicPricingWidget,
   type CipherScoreData,
 } from "./features/InsaneFeatures";
 
@@ -1559,6 +1561,9 @@ export default function DashboardClient({
 
             {activeSection === "fans" && (
               <div style={{ display: "grid", gap: "12px" }}>
+                {/* AI Fan Personas - Top of fans section */}
+                <FanPersonasWidget />
+
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: "10px" }}>
                   {[
                     { label: "Tracked fans", value: String(fanInsights.length), hint: `${crmCoverage} enriched with CRM notes` },
@@ -1676,6 +1681,9 @@ export default function DashboardClient({
 
             {activeSection === "earnings" && (
               <div style={{ display: "grid", gap: "12px" }}>
+                {/* AI Pricing Optimizer */}
+                <DynamicPricingWidget />
+
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
                   <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>PAYOUT COMMAND CENTER</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "center", marginTop: "10px" }}>

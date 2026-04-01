@@ -641,6 +641,221 @@ export function ContentIdeasWidget() {
   );
 }
 
+// ─── Fan Personas Widget ───────────────────────────────────────────────────────
+export function FanPersonasWidget() {
+  const [personas, setPersonas] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/ai/fans/personas")
+      .then(r => r.json())
+      .then(data => {
+        setPersonas(data.personas);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const personaColors: Record<string, string> = {
+    whale: "#c8a96e",
+    loyal: "#8dcfff",
+    at_risk: "#ff6a6a",
+    new: "#4cc88c",
+    lurker: "var(--dim)",
+    regular: "#a7adb8"
+  };
+
+  const personaIcons: Record<string, string> = {
+    whale: "🐋",
+    loyal: "⭐",
+    at_risk: "⚠️",
+    new: "🌱",
+    lurker: "👁️",
+    regular: "👤"
+  };
+
+  if (loading) return (
+    <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "12px", padding: "18px" }}>
+      <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", marginBottom: "12px" }}>AI FAN INTELLIGENCE</div>
+      <div style={{ color: "var(--dim)", fontSize: "13px" }}>Analyzing fan segments...</div>
+    </div>
+  );
+
+  if (!personas || Object.keys(personas).length === 0) return null;
+
+  const sortedPersonas = Object.entries(personas).sort((a: any, b: any) => b[1].fans.length - a[1].fans.length);
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0f0f1e 0%, #151528 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "18px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.14em", color: "var(--gold-dim)" }}>AI FAN INTELLIGENCE</div>
+        <div style={{ ...mono, fontSize: "9px", color: "var(--dim)" }}>{Object.values(personas).reduce((s: number, p: any) => s + p.fans.length, 0)} FANS ANALYZED</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {sortedPersonas.map(([key, data]: [string, any]) => (
+          <div key={key}>
+            <button
+              onClick={() => setSelectedPersona(selectedPersona === key ? null : key)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 12px",
+                background: selectedPersona === key ? "rgba(255,255,255,0.05)" : "transparent",
+                border: `1px solid ${selectedPersona === key ? personaColors[key] || "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}`,
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>{personaIcons[key]}</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", textTransform: "capitalize" }}>{key.replace("_", " ")}</span>
+                  <span style={{ ...mono, fontSize: "11px", color: personaColors[key] || "var(--gold)" }}>{data.fans.length}</span>
+                </div>
+                <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "2px" }}>
+                  Avg: ${(data.fans.reduce((s: number, f: any) => s + f.totalSpent, 0) / data.fans.length).toFixed(0)}
+                </div>
+              </div>
+            </button>
+
+            {selectedPersona === key && data.insights && (
+              <div style={{ marginTop: "8px", padding: "12px", background: "rgba(0,0,0,0.2)", borderRadius: "6px", borderLeft: `2px solid ${personaColors[key]}` }}>
+                <div style={{ fontSize: "11px", color: "var(--dim)", marginBottom: "8px" }}>{data.insights.traits}</div>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.8)", marginBottom: "8px" }}>
+                  <span style={{ color: personaColors[key] }}>Strategy:</span> {data.insights.strategy}
+                </div>
+                {data.insights.messageTemplate && (
+                  <div style={{ padding: "8px", background: "rgba(200,169,110,0.08)", borderRadius: "4px", fontSize: "11px", color: "rgba(255,255,255,0.7)", fontStyle: "italic" }}>
+                    "{data.insights.messageTemplate.slice(0, 100)}..."
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Dynamic Pricing Widget ────────────────────────────────────────────────────
+export function DynamicPricingWidget() {
+  const [recommendation, setRecommendation] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [contentType, setContentType] = useState("unlock");
+  const [contentQuality, setContentQuality] = useState("premium");
+
+  const analyze = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ai/monetization/dynamic-pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType, contentQuality, exclusivity: "standard" })
+      });
+      const data = await res.json();
+      setRecommendation(data.recommendation);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "12px", padding: "18px" }}>
+      <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.14em", color: "var(--gold-dim)", marginBottom: "14px" }}>AI PRICING OPTIMIZER</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+        <select 
+          value={contentType} 
+          onChange={e => setContentType(e.target.value)}
+          style={{ padding: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", fontSize: "12px" }}
+        >
+          <option value="unlock">Content Unlock</option>
+          <option value="subscription">Subscription</option>
+          <option value="tip">Tip/Donation</option>
+          <option value="bundle">Bundle</option>
+        </select>
+        <select 
+          value={contentQuality} 
+          onChange={e => setContentQuality(e.target.value)}
+          style={{ padding: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", fontSize: "12px" }}
+        >
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="exclusive">Exclusive</option>
+        </select>
+      </div>
+
+      <button
+        onClick={analyze}
+        disabled={loading}
+        style={{
+          width: "100%",
+          padding: "10px",
+          background: "rgba(200,169,110,0.15)",
+          border: "1px solid rgba(200,169,110,0.3)",
+          borderRadius: "6px",
+          color: "var(--gold)",
+          ...mono,
+          fontSize: "10px",
+          cursor: "pointer",
+          marginBottom: "14px",
+          opacity: loading ? 0.6 : 1
+        }}
+      >
+        {loading ? "ANALYZING..." : "GET OPTIMAL PRICE"}
+      </button>
+
+      {recommendation && (
+        <div style={{ animation: "fadeIn 0.3s ease" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "8px" }}>
+            <span style={{ ...disp, fontSize: "32px", color: "var(--gold)" }}>{recommendation.optimalPrice}</span>
+            <span style={{ ...mono, fontSize: "10px", color: "var(--dim)" }}>{recommendation.confidence} confidence</span>
+          </div>
+          
+          <div style={{ fontSize: "11px", color: "var(--dim)", marginBottom: "12px", lineHeight: 1.5 }}>
+            {recommendation.rationale}
+          </div>
+
+          {recommendation.dynamicPricing?.launch && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ padding: "8px", background: "rgba(76,200,140,0.08)", border: "1px solid rgba(76,200,140,0.2)", borderRadius: "6px", textAlign: "center" }}>
+                <div style={{ ...mono, fontSize: "8px", color: "#4cc88c", marginBottom: "2px" }}>LAUNCH (24H)</div>
+                <div style={{ fontSize: "16px", color: "#4cc88c" }}>${recommendation.dynamicPricing.launch}</div>
+              </div>
+              <div style={{ padding: "8px", background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "6px", textAlign: "center" }}>
+                <div style={{ ...mono, fontSize: "8px", color: "var(--gold)", marginBottom: "2px" }}>STANDARD</div>
+                <div style={{ fontSize: "16px", color: "var(--gold)" }}>${recommendation.dynamicPricing.standard}</div>
+              </div>
+            </div>
+          )}
+
+          {recommendation.factors?.length > 0 && (
+            <div>
+              <div style={{ ...mono, fontSize: "9px", color: "var(--dim)", marginBottom: "6px" }}>FACTORS ANALYZED</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                {recommendation.factors.slice(0, 3).map((factor: string, i: number) => (
+                  <span key={i} style={{ padding: "4px 8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px", fontSize: "10px", color: "rgba(255,255,255,0.7)" }}>
+                    {factor.split(":")[0]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+    </div>
+  );
+}
+
 // ─── Legacy Mode ───────────────────────────────────────────────────────────────
 export function LegacyMode() {
   const [enabled, setEnabled] = useState(false);
