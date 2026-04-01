@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // Check which AI providers are configured
+  // Check AI provider configuration (OpenRouter only)
   const status = {
-    // OpenRouter (used by bio generator & price optimizer)
+    // OpenRouter - used for ALL AI features
     openrouter: {
       keySet: !!process.env.OPENROUTER_API_KEY,
       keyPrefix: process.env.OPENROUTER_API_KEY?.slice(0, 12) || null,
       referer: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-    },
-    // Anthropic (used by ghostwriter)
-    anthropic: {
-      keySet: !!process.env.ANTHROPIC_API_KEY,
-      keyPrefix: process.env.ANTHROPIC_API_KEY?.slice(0, 12) || null,
     },
     // Supabase (for saving generated content)
     supabase: {
@@ -26,7 +21,6 @@ export async function GET() {
 
   // Determine overall health
   const hasOpenRouter = status.openrouter.keySet;
-  const hasAnthropic = status.anthropic.keySet;
   const hasSupabaseService = status.supabase.serviceRoleSet;
 
   return NextResponse.json({
@@ -34,20 +28,23 @@ export async function GET() {
     health: {
       canGenerateBio: hasOpenRouter,
       canPredictPrice: hasOpenRouter,
-      canGhostwrite: hasAnthropic,
+      canGhostwrite: hasOpenRouter, // Now uses OpenRouter too
       canSaveToDb: hasSupabaseService,
-      allSystemsGo: hasOpenRouter && hasAnthropic && hasSupabaseService,
+      allSystemsGo: hasOpenRouter && hasSupabaseService,
     },
     fixes: {
-      bioGeneration: !hasOpenRouter 
+      openrouter: !hasOpenRouter 
         ? "Add OPENROUTER_API_KEY to Vercel env vars" 
-        : "Working",
-      ghostwriter: !hasAnthropic 
-        ? "Add ANTHROPIC_API_KEY to Vercel env vars" 
-        : "Working",
+        : "All AI features working via OpenRouter",
       database: !hasSupabaseService 
         ? "Add SUPABASE_SERVICE_ROLE_KEY to Vercel env vars (NOT NEXT_PUBLIC_)" 
         : "Working",
+    },
+    models: {
+      fast: "openai/gpt-4o-mini (bio, captions, ideas)",
+      balanced: "google/gemini-flash-1.5 (content, strategy)",
+      premium: "anthropic/claude-3.5-sonnet (ghostwriter)",
+      note: "All models routed through OpenRouter",
     },
   });
 }
