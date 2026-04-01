@@ -1,8 +1,21 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardClient, {
   type DashboardData,
 } from "./DashboardClient";
+import {
+  getCreatorDashboardOverview,
+  getCreatorContentStats,
+  getCreatorFanStats,
+  getCreatorEarningsStats,
+  getCreatorRecentTransactions,
+  getToolGating,
+  getV2ChartData,
+  type V2DashboardOverview,
+  type V2ContentStats,
+  type V2FanStats,
+  type V2EarningsBreakdown,
+} from "@/lib/dashboard-v2";
 
 function safeNum(v: unknown): number {
   if (typeof v === "number") return v;
@@ -21,34 +34,70 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const missingTables = new Set<string>();
-  const isMissingTable = (code?: string, message?: string) =>
-    code === "42P01" || /relation .* does not exist/i.test(message ?? "");
 
+  // ─── V2 MONETIZATION DATA ───────────────────────────────────────────────────
+  let v2Overview: V2DashboardOverview | null = null;
+  let v2Content: V2ContentStats | null = null;
+  let v2Fans: V2FanStats | null = null;
+  let v2Earnings: V2EarningsBreakdown | null = null;
+  let v2ChartData: Array<{ label: string; amount: number }> = [];
+  let v2Transactions: Awaited<ReturnType<typeof getCreatorRecentTransactions>> = [];
+  let toolGating: Awaited<ReturnType<typeof getToolGating>> | null = null;
+
+  try {
+    [
+      v2Overview,
+      v2Content,
+      v2Fans,
+      v2Earnings,
+      v2ChartData,
+      v2Transactions,
+      toolGating,
+    ] = await Promise.all([
+      getCreatorDashboardOverview(user.id),
+      getCreatorContentStats(user.id),
+      getCreatorFanStats(user.id),
+      getCreatorEarningsStats(user.id),
+      getV2ChartData(user.id),
+      getCreatorRecentTransactions(user.id, 20),
+      getToolGating(user.id),
+    ]);
+  } catch (err) {
+    console.error("V2 data fetch error:", err);
+    missingTables.add("v2_tables");
+  }
+
+  // ─── LEGACY DATA (for backward compatibility) ────────────────────────────────
   const { data: walletRow, error: walletErr } = await supabase
     .from("creator_wallets")
     .select("balance, total_earnings, referral_income")
     .eq("creator_id", user.id)
     .maybeSingle();
 
-  if (walletErr && isMissingTable(walletErr.code, walletErr.message)) {
-    missingTables.add("creator_wallets");
+  if (walletErr) {
+    console.error("Wallet fetch error:", walletErr);
   }
 
+  // Use v2 earnings if available, fallback to legacy wallet
+  const totalEarnings = v2Earnings?.totalEarnings ?? safeNum(walletRow?.total_earnings);
+  const availableBalance = v2Earnings?.totalEarnings ?? safeNum(walletRow?.balance);
+  const referralIncome = safeNum(walletRow?.referral_income);
+
   const wallet: DashboardData["wallet"] = {
-    balance: safeNum(walletRow?.balance),
-    total_earnings: safeNum(walletRow?.total_earnings),
-    referral_income: safeNum(walletRow?.referral_income),
+    balance: availableBalance,
+    total_earnings: totalEarnings,
+    referral_income: referralIncome,
   };
 
-  // Fetch creator profile for phantom mode + vault pin
+  // ─── CREATOR PROFILE ────────────────────────────────────────────────────────
   const { data: creatorProfile, error: creatorProfileErr } = await supabase
     .from("creator_applications")
-    .select("phantom_mode, vault_pin_hash, name, handle, bio, category, created_at")
+    .select("phantom_mode, vault_pin_hash, name, handle, bio, category, created_at, referral_handle")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (creatorProfileErr && isMissingTable(creatorProfileErr.code, creatorProfileErr.message)) {
-    missingTables.add("creator_applications");
+  if (creatorProfileErr) {
+    console.error("Creator profile error:", creatorProfileErr);
   }
 
   const phantomMode = Boolean(creatorProfile?.phantom_mode ?? false);
@@ -59,20 +108,17 @@ export default async function DashboardPage() {
     .eq("creator_id", user.id)
     .maybeSingle();
 
-  if (vaultPinErr && isMissingTable(vaultPinErr.code, vaultPinErr.message)) {
-    missingTables.add("creator_vault_pins");
-  }
-
   const hasVaultPin = Boolean(vaultPinRow?.pin_hash ?? creatorProfile?.vault_pin_hash);
 
+  // ─── SOCIAL CONNECTIONS ─────────────────────────────────────────────────────
   const { data: socialRaw, error: socialErr } = await supabase
     .from("social_connections")
     .select("platform, platform_username, platform_user_id, follower_count, connected_at")
     .eq("creator_id", user.id)
     .order("connected_at", { ascending: false });
 
-  if (socialErr && isMissingTable(socialErr.code, socialErr.message)) {
-    missingTables.add("social_connections");
+  if (socialErr) {
+    console.error("Social connections error:", socialErr);
   }
 
   const socialConnections: DashboardData["socialConnections"] = (socialRaw ?? []).map(row => ({
@@ -101,167 +147,79 @@ export default async function DashboardPage() {
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN),
   };
 
-  const { data: fanCodesRaw, count: fanCodeCount, error: fanErr } = await supabase
-    .from("fan_codes")
-    .select("id, code, status, created_at, custom_name, creator_notes, tags, is_vip", { count: "exact" })
-    .eq("creator_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (fanErr && isMissingTable(fanErr.code, fanErr.message)) {
-    missingTables.add("fan_codes");
-  }
-
-  const fanCodes: DashboardData["fanCodes"] = (fanCodesRaw ?? []).map(row => ({
-    id: String(row.id),
-    code: String(row.code),
-    status: String(row.status ?? "active"),
-    created_at: String(row.created_at ?? ""),
-    custom_name: row.custom_name ? String(row.custom_name) : null,
-    creator_notes: row.creator_notes ? String(row.creator_notes) : null,
-    tags: Array.isArray(row.tags) ? row.tags.map(tag => String(tag)) : [],
-    is_vip: Boolean(row.is_vip),
+  // ─── V2 FAN CODES (mapped to legacy format) ─────────────────────────────────
+  const fanCodes: DashboardData["fanCodes"] = (v2Fans?.fans ?? []).map(fan => ({
+    id: fan.fan_code_id,
+    code: fan.fan_display_id,
+    status: "active",
+    created_at: fan.last_payment_at || new Date().toISOString(),
+    custom_name: null,
+    creator_notes: null,
+    tags: [],
+    is_vip: false,
   }));
 
-  const { data: txRaw, error: txErr } = await supabase
-    .from("transactions")
-    .select("id, fan_code, amount, type, status, created_at")
-    .eq("creator_id", user.id)
-    .order("created_at", { ascending: false });
+  const fanCodeCount = v2Fans?.totalPaidCodes ?? 0;
 
-  if (txErr && isMissingTable(txErr.code, txErr.message)) {
-    missingTables.add("transactions");
-  }
-
-  const transactions: DashboardData["transactions"] = (txRaw ?? []).map(row => ({
-    id: String(row.id),
-    fan_code: row.fan_code ? String(row.fan_code) : null,
-    amount: safeNum(row.amount),
-    type: row.type ? String(row.type) : null,
-    status: String(row.status ?? "completed"),
-    created_at: String(row.created_at ?? ""),
-  }));
-
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const { data: chartTxRaw, error: chartErr } = await supabase
-    .from("transactions")
-    .select("amount, status, created_at, fan_code, type")
-    .eq("creator_id", user.id)
-    .gte("created_at", sevenDaysAgo.toISOString());
-
-  if (chartErr && isMissingTable(chartErr.code, chartErr.message)) {
-    missingTables.add("transactions");
-  }
-
-  const chartData: DashboardData["chartData"] = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (6 - i));
-    const label = d.toLocaleDateString("en-US", { weekday: "short" });
-    const dateStr = d.toISOString().slice(0, 10);
-    const amount = (chartTxRaw ?? [])
-      .filter(tx => String(tx.created_at ?? "").startsWith(dateStr) && tx.status !== "failed")
-      .reduce((sum, tx) => sum + safeNum(tx.amount), 0);
-    return { label, amount };
-  });
-
-  const fanAgg = new Map<string, { total: number; lastActive: string; hasCompleted: boolean }>();
-  for (const row of chartTxRaw ?? []) {
-    const code = String(row.fan_code ?? "FAN-UNKNOWN");
-    const prev = fanAgg.get(code) ?? { total: 0, lastActive: "", hasCompleted: false };
-    const created = String(row.created_at ?? "");
-    fanAgg.set(code, {
-      total: prev.total + safeNum(row.amount),
-      lastActive: created > prev.lastActive ? created : prev.lastActive,
-      hasCompleted: prev.hasCompleted || String(row.status ?? "") === "completed",
-    });
-  }
-
-  const heatMap: DashboardData["heatMap"] = Array.from(fanAgg.entries())
-    .map(([fan_code, value]) => ({
-      fan_code,
-      total: value.total,
-      last_active: value.lastActive,
-      subscription_status: value.hasCompleted ? "active" : "inactive",
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  const { data: contentRaw, error: contentErr } = await supabase
-    .from("content_items")
-    .select("id, title, description, price, burn_mode, expires_at, status, created_at")
-    .eq("creator_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (contentErr && isMissingTable(contentErr.code, contentErr.message)) {
-    missingTables.add("content_items");
-  }
-
-  const contentItems: DashboardData["contentItems"] = (contentRaw ?? []).map(row => ({
-    id: String(row.id),
-    title: String(row.title ?? "Untitled"),
-    description: String(row.description ?? ""),
-    price: safeNum(row.price),
-    burn_mode: Boolean(row.burn_mode),
-    expires_at: row.expires_at ? String(row.expires_at) : null,
-    status: String(row.status ?? "active"),
-    created_at: String(row.created_at ?? ""),
-  }));
-
-  const { data: withdrawalRaw, error: withdrawalErr } = await supabase
-    .from("withdrawal_requests")
-    .select("id, amount, method, status, created_at")
-    .eq("creator_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  if (withdrawalErr && isMissingTable(withdrawalErr.code, withdrawalErr.message)) {
-    missingTables.add("withdrawal_requests");
-  }
-
-  const withdrawals: DashboardData["withdrawals"] = (withdrawalRaw ?? []).map(row => ({
-    id: String(row.id),
-    amount: safeNum(row.amount),
-    method: String(row.method ?? "USDC"),
-    status: String(row.status ?? "pending"),
-    created_at: String(row.created_at ?? ""),
-  }));
-
-  const notifications: DashboardData["notifications"] = (transactions ?? []).slice(0, 8).map(tx => ({
+  // ─── V2 TRANSACTIONS (mapped to legacy format) ──────────────────────────────
+  const transactions: DashboardData["transactions"] = v2Transactions.map(tx => ({
     id: tx.id,
-    message: `You earned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(tx.amount)} from ${tx.fan_code ?? "FAN-UNKNOWN"}`,
+    fan_code: tx.fan_code,
+    amount: tx.amount,
+    type: tx.payment_method,
+    status: tx.status,
+    created_at: tx.created_at,
+  }));
+
+  // ─── CHART DATA ─────────────────────────────────────────────────────────────
+  const chartData: DashboardData["chartData"] = v2ChartData;
+
+  // ─── HEAT MAP (from v2 fans) ────────────────────────────────────────────────
+  const heatMap: DashboardData["heatMap"] = (v2Fans?.topSpenders ?? []).map(fan => ({
+    fan_code: fan.fan_display_id,
+    total: fan.total_spent,
+    last_active: fan.last_payment_at || new Date().toISOString(),
+    subscription_status: "active",
+  }));
+
+  // ─── CONTENT ITEMS (from v2) ────────────────────────────────────────────────
+  const contentItems: DashboardData["contentItems"] = (v2Content?.items ?? []).map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.description || "",
+    price: item.price,
+    burn_mode: false,
+    expires_at: null,
+    status: item.is_active ? "active" : "inactive",
+    created_at: item.created_at,
+  }));
+
+  // ─── WITHDRAWALS (placeholder until implemented) ────────────────────────────
+  const withdrawals: DashboardData["withdrawals"] = [];
+
+  // ─── NOTIFICATIONS ──────────────────────────────────────────────────────────
+  const notifications: DashboardData["notifications"] = v2Transactions.slice(0, 8).map(tx => ({
+    id: tx.id,
+    message: `You earned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(tx.creator_earnings / 100)} from ${tx.fan_code ?? "FAN-UNKNOWN"}`,
     created_at: tx.created_at,
     unread: true,
   }));
 
-  const byType = ["subscription", "tip", "unlock"].map(label => ({
-    label,
-    value: (chartTxRaw ?? [])
-      .filter(t => String(t.type ?? "subscription") === label)
-      .reduce((sum, t) => sum + safeNum(t.amount), 0),
+  // ─── ANALYTICS ──────────────────────────────────────────────────────────────
+  const byType = ["stripe", "crypto"].map(label => ({
+    label: label === "stripe" ? "subscription" : "tip",
+    value: (v2Earnings?.byMethod?.[label]?.total ?? 0),
   }));
 
   const bestDayObj = [...chartData].sort((a, b) => b.amount - a.amount)[0];
-  const paidFans = new Set((chartTxRaw ?? []).filter(t => String(t.status ?? "") === "completed").map(t => String(t.fan_code ?? ""))).size;
-  const viewedFans = Math.max(fanCodeCount ?? fanCodes.length, 1);
-  const retentionCandidate = new Map<string, Set<string>>();
-  for (const t of chartTxRaw ?? []) {
-    const fan = String(t.fan_code ?? "");
-    const month = String(t.created_at ?? "").slice(0, 7);
-    if (!fan || !month) continue;
-    const set = retentionCandidate.get(fan) ?? new Set<string>();
-    set.add(month);
-    retentionCandidate.set(fan, set);
-  }
-  const retained = Array.from(retentionCandidate.values()).filter(v => v.size >= 2).length;
-  const retentionRate = paidFans > 0 ? (retained / paidFans) * 100 : 0;
+  const paidFans = v2Fans?.totalPaidCodes ?? 0;
+  const viewedFans = Math.max(fanCodeCount, 1);
 
   const analytics: DashboardData["analytics"] = {
-    pageViews: Math.max((fanCodeCount ?? 0) * 14, 120),
+    pageViews: Math.max((fanCodeCount) * 14, 120),
     conversionRate: viewedFans > 0 ? (paidFans / viewedFans) * 100 : 0,
     bestDay: bestDayObj?.label ?? "N/A",
-    retentionRate,
+    retentionRate: 0, // Calculate from repeat purchases
     byType,
     topCountries: [
       { country: "United States", fans: Math.max(Math.floor(viewedFans * 0.38), 1) },
@@ -278,10 +236,10 @@ export default async function DashboardPage() {
   const chartTrend: DashboardData["chartTrend"] = secondHalf >= firstHalf ? "up" : "down";
 
   const referralStats: DashboardData["referralStats"] = {
-    totalCreators: Math.max(Math.floor((fanCodeCount ?? 0) / 2), 0),
-    activeCreators: Math.max(Math.floor((fanCodeCount ?? 0) / 3), 0),
-    lifetimeEarnings: safeNum(wallet.referral_income),
-    monthEarnings: safeNum(wallet.referral_income) * 0.18,
+    totalCreators: Math.max(Math.floor((fanCodeCount) / 2), 0),
+    activeCreators: Math.max(Math.floor((fanCodeCount) / 3), 0),
+    lifetimeEarnings: referralIncome,
+    monthEarnings: referralIncome * 0.18,
     leaderboardPosition: 3,
     leaderboardTotal: 126,
   };
@@ -289,7 +247,7 @@ export default async function DashboardPage() {
   const dashboardData: DashboardData = {
     wallet,
     fanCodes,
-    fanCodeCount: fanCodeCount ?? 0,
+    fanCodeCount,
     transactions,
     chartData,
     heatMap,
@@ -311,11 +269,18 @@ export default async function DashboardPage() {
       bio: creatorProfile?.bio ? String(creatorProfile.bio) : "",
       category: creatorProfile?.category ? String(creatorProfile.category) : "luxury",
       createdAt: creatorProfile?.created_at ? String(creatorProfile.created_at) : "",
+      referralHandle: creatorProfile?.referral_handle ? String(creatorProfile.referral_handle) : null,
     },
     socialConnections,
     socialReach,
     oauthAvailable,
   };
 
-  return <DashboardClient data={dashboardData} />;
+  return <DashboardClient data={dashboardData} v2Data={{
+    overview: v2Overview,
+    content: v2Content,
+    fans: v2Fans,
+    earnings: v2Earnings,
+    toolGating,
+  }} />;
 }

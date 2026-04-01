@@ -3,11 +3,16 @@ import Stripe from "stripe";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { calculateSplit } from "@/lib/monetization";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+// Lazy initialization to avoid build errors
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2026-03-25.dahlia",
+  });
+}
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+function getWebhookSecret() {
+  return process.env.STRIPE_WEBHOOK_SECRET!;
+}
 
 // Use Supabase service role for webhook (no user auth context)
 function getServiceSupabase() {
@@ -34,7 +39,8 @@ export async function POST(request: Request) {
   // ── Verify Stripe signature ───────────────────────────────────────────────
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    const stripe = getStripe();
+    event = stripe.webhooks.constructEvent(rawBody, sig, getWebhookSecret());
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });

@@ -19,6 +19,7 @@ import {
   CipherRadio,
   LegacyMode,
   FanPredictionEngine,
+  FanCodeGenerator,
   type CipherScoreData,
 } from "./features/InsaneFeatures";
 
@@ -77,6 +78,7 @@ export type CreatorProfileSummary = {
   bio: string;
   category: string;
   createdAt: string;
+  referralHandle: string | null;
 };
 
 export type WithdrawalRow = {
@@ -429,7 +431,19 @@ function DonutChart({ data }: { data: Array<{ label: string; value: number }> })
   );
 }
 
-export default function DashboardClient({ data }: { data: DashboardData }) {
+export default function DashboardClient({ 
+  data, 
+  v2Data 
+}: { 
+  data: DashboardData;
+  v2Data?: {
+    overview: import("@/lib/dashboard-v2").V2DashboardOverview | null;
+    content: import("@/lib/dashboard-v2").V2ContentStats | null;
+    fans: import("@/lib/dashboard-v2").V2FanStats | null;
+    earnings: import("@/lib/dashboard-v2").V2EarningsBreakdown | null;
+    toolGating: import("@/lib/dashboard-v2").ToolGating | null;
+  };
+}) {
   const {
     wallet,
     fanCodes,
@@ -513,7 +527,16 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
   const [autoShareEnabled, setAutoShareEnabled] = useState(false);
   const [shareText, setShareText] = useState("New exclusive content just dropped 🔒 cipher.co/@creator");
 
-  const handle = userEmail.split("@")[0] || userId.slice(0, 8);
+  // Referral handle customization
+  const [customHandle, setCustomHandle] = useState(creatorProfile.referralHandle || "");
+  const [handleUnlocked, setHandleUnlocked] = useState(false);
+  const [handleUnlockProgress, setHandleUnlockProgress] = useState(0);
+  const [handleRequired, setHandleRequired] = useState(1000);
+  const [handleSaving, setHandleSaving] = useState(false);
+  const [handleMsg, setHandleMsg] = useState("");
+  const [showHandleEdit, setShowHandleEdit] = useState(false);
+
+  const handle = customHandle || creatorProfile.referralHandle || userEmail.split("@")[0] || userId.slice(0, 8);
   const referralLink = `cipher.so/ref/${handle}`;
   const maxChart = Math.max(...chartData.map(d => d.amount), 1);
   const forecast = useMemo(() => {
@@ -684,6 +707,57 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     }
   }, [refreshConnections]);
 
+  // Check referral handle unlock status
+  useEffect(() => {
+    const checkUnlockStatus = async () => {
+      try {
+        const res = await fetch("/api/referral/update-handle");
+        if (!res.ok) return;
+        const data = await res.json();
+        setHandleUnlocked(data.unlocked);
+        setHandleUnlockProgress(data.progress);
+        setHandleRequired(data.required);
+        if (data.currentHandle) {
+          setCustomHandle(data.currentHandle);
+        }
+      } catch (err) {
+        console.error("Failed to check handle unlock status:", err);
+      }
+    };
+    checkUnlockStatus();
+  }, []);
+
+  const updateReferralHandle = async () => {
+    if (!customHandle.trim()) {
+      setHandleMsg("Please enter a handle");
+      return;
+    }
+    
+    setHandleSaving(true);
+    setHandleMsg("");
+    
+    try {
+      const res = await fetch("/api/referral/update-handle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle: customHandle.trim() }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update handle");
+      }
+      
+      setHandleMsg("Referral link updated!");
+      setShowHandleEdit(false);
+    } catch (err) {
+      setHandleMsg(err instanceof Error ? err.message : "Failed to update handle");
+    } finally {
+      setHandleSaving(false);
+    }
+  };
+
   const connectPlatform = async (platform: SocialPlatform) => {
     if (!oauthAvailable[platform]) {
       setSocialMsg(`${PLATFORM_META[platform].label} is coming soon. Add environment variables first.`);
@@ -782,41 +856,46 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     }
   };
 
+  const [generatedUnlockUrl, setGeneratedUnlockUrl] = useState("");
+
   const saveContentItem = async () => {
     setContentMsg("");
+    setGeneratedUnlockUrl("");
     if (!contentTitle.trim()) {
       setContentMsg("Title is required.");
       return;
     }
 
-    const now = new Date();
-    const expiresAt = new Date(now);
-    if (contentExpiry === "24h") expiresAt.setHours(expiresAt.getHours() + 24);
-    if (contentExpiry === "7d") expiresAt.setDate(expiresAt.getDate() + 7);
-    if (contentExpiry === "30d") expiresAt.setDate(expiresAt.getDate() + 30);
-
     setContentSaving(true);
     try {
-      const priceVal = Number(contentPrice);
-      if (!Number.isFinite(priceVal) || priceVal < 0) {
-        setContentMsg("Please enter a valid price.");
+      const priceVal = Math.round(Number(contentPrice) * 100); // Convert to cents
+      if (!Number.isFinite(priceVal) || priceVal < 50) {
+        setContentMsg("Price must be at least $0.50 (50 cents).");
         setContentSaving(false);
         return;
       }
-      const supabase = createClient();
-      const { error } = await supabase.from("content_items").insert({
-        creator_id: userId,
-        title: contentTitle.trim(),
-        description: contentDesc.trim(),
-        price: priceVal,
-        burn_mode: burnMode,
-        expires_at: burnMode ? expiresAt.toISOString() : null,
-        status: "active",
-        auto_shared: autoShareEnabled,
-        share_text: autoShareEnabled ? shareText.trim() : null,
+
+      // Use V2 API for content creation
+      const res = await fetch("/api/v2/content/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: contentTitle.trim(),
+          description: contentDesc.trim(),
+          price: priceVal,
+          currency: "usd",
+          file_url: "https://placeholder.com/content", // Replace with actual file upload
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errData.error || "Failed to create content");
+      }
+
+      const { data } = await res.json();
+      const unlockUrl = data.unlockUrl;
+      setGeneratedUnlockUrl(unlockUrl);
 
       if (autoShareEnabled) {
         try {
@@ -830,29 +909,23 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
           });
           if (!shareRes.ok) {
             console.error("Auto-share failed with status", shareRes.status);
-            setContentMsg("Content saved. Auto-share did not complete — check your social connections.");
-            setContentTitle("");
-            setContentDesc("");
-            setContentPrice("0");
+            setContentMsg(`Content LIVE! Unlock link generated. Auto-share failed.`);
             return;
           }
         } catch (shareErr) {
           console.error("Auto-share network error:", shareErr);
-          setContentMsg("Content saved. Auto-share failed due to a network error.");
-          setContentTitle("");
-          setContentDesc("");
-          setContentPrice("0");
+          setContentMsg(`Content LIVE! Unlock link generated. Auto-share failed.`);
           return;
         }
       }
 
-      setContentMsg("Content item saved. Refresh to see latest.");
+      setContentMsg("✓ Content LIVE! Your unlock link is ready.");
       setContentTitle("");
       setContentDesc("");
       setContentPrice("0");
     } catch (err) {
       console.error("Save content failed:", err);
-      setContentMsg("Could not save content item.");
+      setContentMsg(err instanceof Error ? err.message : "Could not save content item.");
     } finally {
       setContentSaving(false);
     }
@@ -1329,10 +1402,36 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "content" && (
               <div style={{ display: "grid", gap: "12px" }}>
+                {/* Link to full content manager */}
+                <div style={{ background: "#111120", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "8px", padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "var(--gold-dim)" }}>CONTENT MANAGER</div>
+                    <div style={{ fontSize: "16px", color: "var(--gold)", marginTop: "4px" }}>Full content management system</div>
+                    <div style={{ fontSize: "13px", color: "var(--dim)", marginTop: "4px" }}>Upload, organize, and manage all your content</div>
+                  </div>
+                  <a 
+                    href="/dashboard/content"
+                    style={{
+                      padding: "12px 24px",
+                      background: "var(--gold)",
+                      border: "none",
+                      borderRadius: "8px",
+                      color: "#120c00",
+                      ...mono,
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    OPEN →
+                  </a>
+                </div>
+
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "var(--gold-dim)" }}>BURN MODE CONTENT SCHEDULER</div>
+                      <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "var(--gold-dim)" }}>QUICK UPLOAD</div>
                       <div style={{ fontSize: "14px", color: "var(--white)" }}>Set content to self-expire automatically</div>
                     </div>
                     <button type="button" onClick={() => setBurnMode(v => !v)} style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: "999px", padding: "8px 14px", background: burnMode ? "rgba(200,169,110,0.16)" : "transparent", color: burnMode ? "var(--gold)" : "var(--dim)", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer" }}>
@@ -1370,6 +1469,28 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                     </button>
                   </div>
                   {contentMsg && <div style={{ marginTop: "8px", color: contentMsg.includes("Could") ? "#ff6a6a" : "var(--gold)", fontSize: "12px" }}>{contentMsg}</div>}
+                  
+                  {generatedUnlockUrl && (
+                    <div style={{ marginTop: "12px", padding: "12px", background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.3)", borderRadius: "6px" }}>
+                      <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "6px" }}>UNLOCK LINK (COPY & SHARE)</div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <input 
+                          readOnly 
+                          value={generatedUnlockUrl} 
+                          style={{ flex: 1, padding: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "4px", color: "var(--gold)", fontSize: "12px", fontFamily: "monospace" }}
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedUnlockUrl);
+                            setContentMsg("Link copied!");
+                          }}
+                          style={{ padding: "8px 16px", background: "var(--gold)", border: "none", borderRadius: "4px", color: "#000", ...mono, fontSize: "10px", cursor: "pointer" }}
+                        >
+                          COPY
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
@@ -1379,15 +1500,43 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                     {contentItems.map(item => {
                       const left = daysLeft(item.expires_at);
                       const expiring = left !== null && left <= 2;
+                      // Get v2 stats if available
+                      const v2Item = v2Data?.content?.items.find(v => v.id === item.id);
+                      const unlockCount = v2Item?.unlockCount ?? 0;
+                      const paidUnlocks = v2Item?.paidUnlockCount ?? 0;
+                      const revenue = v2Item?.paidRevenue ?? 0;
+                      
                       return (
                         <div key={item.id} style={{ border: `1px solid ${expiring ? "rgba(200,169,110,0.5)" : "rgba(255,255,255,0.08)"}`, borderRadius: "7px", padding: "10px", background: "rgba(255,255,255,0.02)", animation: expiring ? "pulseGold 1.4s ease-in-out infinite" : "none" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <div style={{ fontSize: "14px", color: "var(--white)" }}>{item.title}</div>
-                            <div style={{ ...disp, fontSize: "24px", color: "var(--gold)" }}>{money.format(item.price)}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <div>
+                              <div style={{ fontSize: "14px", color: "var(--white)" }}>{item.title}</div>
+                              <div style={{ fontSize: "12px", color: "var(--dim)", marginTop: "4px" }}>{item.description || "No description"}</div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ ...disp, fontSize: "24px", color: "var(--gold)" }}>{money.format(item.price / 100)}</div>
+                              <div style={{ ...mono, fontSize: "9px", color: "var(--dim)" }}>per unlock</div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: "12px", color: "var(--dim)" }}>{item.description || "No description"}</div>
-                          <div style={{ ...mono, fontSize: "10px", color: "var(--muted)", marginTop: "6px" }}>
-                            {item.burn_mode ? `Burn mode - ${left ?? "?"} day(s) left` : "Persistent content"}
+                          
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...disp, fontSize: "18px", color: "var(--white)" }}>{unlockCount}</div>
+                              <div style={{ ...mono, fontSize: "8px", color: "var(--dim)" }}>TOTAL CODES</div>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...disp, fontSize: "18px", color: "var(--gold)" }}>{paidUnlocks}</div>
+                              <div style={{ ...mono, fontSize: "8px", color: "var(--dim)" }}>PAID UNLOCKS</div>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ ...disp, fontSize: "18px", color: "#4cc88c" }}>{money.format(revenue / 100)}</div>
+                              <div style={{ ...mono, fontSize: "8px", color: "var(--dim)" }}>REVENUE</div>
+                            </div>
+                          </div>
+                          
+                          <div style={{ ...mono, fontSize: "10px", color: "var(--muted)", marginTop: "8px", display: "flex", justifyContent: "space-between" }}>
+                            <span>{item.burn_mode ? `Burn mode - ${left ?? "?"} day(s) left` : "Persistent content"}</span>
+                            <span>{item.status === "active" ? "● LIVE" : "○ INACTIVE"}</span>
                           </div>
                         </div>
                       );
@@ -1412,6 +1561,31 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                       <div style={{ fontSize: "12px", color: "var(--dim)", marginTop: "6px" }}>{stat.hint}</div>
                     </div>
                   ))}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
+                  <div>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>GENERATE NEW CODES</div>
+                    <div style={{ fontSize: "13px", color: "var(--dim)", marginTop: "4px" }}>Create anonymous fan codes for new supporters</div>
+                  </div>
+                  <FanCodeGenerator
+                    userId={userId}
+                    currentCount={fanCodeCount}
+                    tier={creatorProfile.category}
+                    onGenerated={(newCodes) => {
+                      // Refresh fan codes after generation
+                      setFansState(prev => [...newCodes.map(c => ({
+                        id: c.id,
+                        code: c.code,
+                        status: "active",
+                        created_at: c.created_at,
+                        custom_name: null,
+                        creator_notes: null,
+                        tags: [],
+                        is_vip: false,
+                      })), ...prev]);
+                    }}
+                  />
                 </div>
 
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
@@ -1530,14 +1704,91 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
             {activeSection === "referrals" && (
               <div style={{ display: "grid", gap: "12px" }}>
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
-                  <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>REFERRAL COMMAND CENTER</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>REFERRAL COMMAND CENTER</div>
+                    {!handleUnlocked && (
+                      <div style={{ ...mono, fontSize: "9px", color: "var(--dim)", letterSpacing: "0.1em" }}>
+                        LOCKED
+                      </div>
+                    )}
+                  </div>
+                  
                   <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "12px", marginTop: "10px" }}>
                     <div>
                       <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "7px", padding: "10px", ...mono, color: "var(--gold)", fontSize: "12px", wordBreak: "break-all" }}>{referralLink}</div>
-                      <button type="button" onClick={copyLink} style={{ marginTop: "8px", border: "none", borderRadius: "6px", padding: "8px 12px", background: copied ? "rgba(200,169,110,0.2)" : "var(--gold)", color: copied ? "var(--gold)" : "#120c00", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer" }}>
-                        {copied ? "COPIED" : "COPY LINK"}
-                      </button>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                        <button type="button" onClick={copyLink} style={{ border: "none", borderRadius: "6px", padding: "8px 12px", background: copied ? "rgba(200,169,110,0.2)" : "var(--gold)", color: copied ? "var(--gold)" : "#120c00", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer" }}>
+                          {copied ? "COPIED" : "COPY LINK"}
+                        </button>
+                        
+                        {handleUnlocked ? (
+                          <button 
+                            type="button" 
+                            onClick={() => setShowHandleEdit(!showHandleEdit)}
+                            style={{ border: "1px solid rgba(200,169,110,0.4)", borderRadius: "6px", padding: "8px 12px", background: "transparent", color: "var(--gold)", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer" }}
+                          >
+                            {showHandleEdit ? "CANCEL" : "CUSTOMIZE"}
+                          </button>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 12px", ...mono, fontSize: "10px", color: "var(--dim)" }}>
+                            <span>🔒</span>
+                            <span>Customize at ${handleRequired.toLocaleString()} ({(handleUnlockProgress || 0).toFixed(0)}%)</span>
+                          </div>
+                        )}
+                      </div>
                       {copyErr && <div style={{ marginTop: "6px", color: "#ff6a6a", fontSize: "12px" }}>{copyErr}</div>}
+                      
+                      {/* Custom Handle Editor */}
+                      {showHandleEdit && handleUnlocked && (
+                        <div style={{ marginTop: "16px", padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(200,169,110,0.2)" }}>
+                          <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", marginBottom: "10px" }}>
+                            CUSTOM REFERRAL HANDLE
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span style={{ ...mono, fontSize: "12px", color: "var(--dim)" }}>cipher.so/ref/</span>
+                            <input
+                              type="text"
+                              value={customHandle}
+                              onChange={e => setCustomHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                              placeholder="your-handle"
+                              maxLength={30}
+                              style={{ flex: 1, padding: "10px", background: "#0d0d18", border: "1px solid rgba(255,255,255,0.1)", color: "var(--white)", borderRadius: "6px", ...mono, fontSize: "12px" }}
+                            />
+                          </div>
+                          <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "6px" }}>
+                            3-30 characters, letters, numbers, hyphens, underscores only
+                          </div>
+                          {handleMsg && (
+                            <div style={{ marginTop: "10px", padding: "10px", borderRadius: "6px", fontSize: "12px", background: handleMsg.includes("updated") ? "rgba(76,200,140,0.1)" : "rgba(200,100,100,0.1)", color: handleMsg.includes("updated") ? "#4cc88c" : "#ff8f8f" }}>
+                              {handleMsg}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={updateReferralHandle}
+                            disabled={handleSaving}
+                            style={{ marginTop: "12px", width: "100%", padding: "12px", border: "none", borderRadius: "6px", background: "var(--gold)", color: "#120c00", ...mono, fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em", cursor: handleSaving ? "not-allowed" : "pointer", opacity: handleSaving ? 0.6 : 1 }}
+                          >
+                            {handleSaving ? "SAVING..." : "UPDATE REFERRAL LINK"}
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Locked Progress Bar */}
+                      {!handleUnlocked && (
+                        <div style={{ marginTop: "16px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", ...mono, fontSize: "10px", color: "var(--dim)", marginBottom: "6px" }}>
+                            <span>Progress to unlock</span>
+                            <span>{(handleUnlockProgress || 0).toFixed(0)}%</span>
+                          </div>
+                          <div style={{ height: "6px", background: "rgba(255,255,255,0.06)", borderRadius: "3px", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${Math.min(handleUnlockProgress || 0, 100)}%`, background: "linear-gradient(90deg, var(--gold-dim), var(--gold))", borderRadius: "3px", transition: "width 0.5s ease" }} />
+                          </div>
+                          <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "8px" }}>
+                            Earn ${handleRequired.toLocaleString()} to unlock custom referral handles
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "7px", padding: "10px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.02)" }}>
@@ -1576,12 +1827,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "analytics" && (
               <div style={{ display: "grid", gap: "12px" }}>
-                <FanPredictionEngine
-                  totalEarnings={wallet.total_earnings}
-                  fanCount={fanCodeCount}
-                  retentionRate={analytics.retentionRate}
-                  chartTrend={chartTrend}
-                />
+                <FanPredictionEngine />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "10px" }}>
                   <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "14px" }}>
                     <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>TOTAL PAGE VIEWS</div>
@@ -1665,19 +1911,14 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                   <div style={{ fontSize: "13px", color: "var(--dim)", marginBottom: "16px" }}>
                     A 4-digit PIN-protected space only you can access. SHA-256 hashed. Never stored in plaintext.
                   </div>
-                  <DarkVault userId={userId} hasPin={hasVaultPin} />
+                  <DarkVault userId={userId} hasPin={hasVaultPin} onSetup={() => {}} />
                 </div>
               </div>
             )}
 
             {activeSection === "legacy" && (
               <div style={{ display: "grid", gap: "12px" }}>
-                <LegacyMode
-                  totalScore={totalCipherScore}
-                  userEmail={userEmail}
-                  totalEarnings={wallet.total_earnings}
-                  fanCount={fanCodeCount}
-                />
+                <LegacyMode />
               </div>
             )}
 
