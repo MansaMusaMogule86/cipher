@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 interface SocialConnection {
   platform: string;
@@ -21,48 +22,48 @@ const PLATFORMS = [
 export default function DebugSocial() {
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    loadConnections();
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (cancelled) return;
+        setUser(authUser);
 
-  const loadConnections = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      setUser(authUser);
+        if (!authUser) {
+          setLoading(false);
+          return;
+        }
 
-      if (!authUser) {
-        setLoading(false);
-        return;
+        const { data: socialData } = await supabase
+          .from('social_connections')
+          .select('*');
+
+        const conns: SocialConnection[] = PLATFORMS.map(p => {
+          const existing = socialData?.find((s: Record<string, unknown>) => (s.platform as string)?.toLowerCase() === p.name.toLowerCase());
+          return {
+            platform: p.name,
+            platform_username: existing?.platform_username || null,
+            follower_count: existing?.follower_count || null,
+            connected: !!existing,
+            has_tokens: !!(existing?.access_token),
+          };
+        });
+
+        if (!cancelled) {
+          setConnections(conns);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setLoading(false);
       }
-
-      const { data: socialData } = await supabase
-        .from('social_connections')
-        .select('*');
-
-      const conns: SocialConnection[] = PLATFORMS.map(p => {
-        const existing = socialData?.find((s: any) => s.platform?.toLowerCase() === p.name.toLowerCase());
-        return {
-          platform: p.name,
-          platform_username: existing?.platform_username || null,
-          follower_count: existing?.follower_count || null,
-          connected: !!existing,
-          has_tokens: !!(existing?.access_token),
-        };
-      });
-
-      setConnections(conns);
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
-  };
-
-  const handleConnect = (path: string) => {
-    window.location.href = path;
-  };
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: '#020203', color: 'rgba(255,255,255,0.92)', padding: '48px 24px', fontFamily: 'var(--font-body, Outfit), sans-serif' }}>
@@ -83,7 +84,7 @@ export default function DebugSocial() {
           <p style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono, DM Mono), monospace' }}>Loading connections...</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {PLATFORMS.map((platform, i) => {
+            {PLATFORMS.map((platform) => {
               const conn = connections.find(c => c.platform === platform.name);
               return (
                 <div key={platform.name} style={{
@@ -108,12 +109,13 @@ export default function DebugSocial() {
                   }}>
                     {conn?.connected ? 'Connected' : 'Disconnected'}
                   </div>
-                  <button onClick={() => handleConnect(platform.connectPath)} style={{
+                  <a href={platform.connectPath} style={{
                     padding: '8px 16px', background: 'rgba(200,169,110,0.15)', border: '1px solid rgba(200,169,110,0.3)',
                     borderRadius: 6, color: '#c8a96e', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-mono, DM Mono), monospace',
+                    textDecoration: 'none', display: 'inline-block',
                   }}>
                     {conn?.connected ? 'Reconnect' : 'Connect'}
-                  </button>
+                  </a>
                 </div>
               );
             })}

@@ -5,7 +5,7 @@ interface TestResult {
   name: string;
   status: 'untested' | 'ok' | 'error';
   message: string;
-  details: any;
+  details: unknown;
 }
 
 export default function DebugStripe() {
@@ -16,7 +16,7 @@ export default function DebugStripe() {
     { name: 'Create Checkout Session', status: 'untested', message: 'Not tested', details: null },
   ]);
 
-  const updateResult = (index: number, status: 'untested' | 'ok' | 'error', message: string, details?: any) => {
+  const updateResult = (index: number, status: 'untested' | 'ok' | 'error', message: string, details?: unknown) => {
     setResults(prev => {
       const next = [...prev];
       next[index] = { ...next[index], status, message, details };
@@ -42,8 +42,8 @@ export default function DebugStripe() {
       } else {
         updateResult(3, 'error', `HTTP ${resp.status}: ${data.error || 'Unknown'}`, data);
       }
-    } catch (e: any) {
-      updateResult(3, 'error', e.message);
+    } catch (e: unknown) {
+      updateResult(3, 'error', e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -63,8 +63,8 @@ export default function DebugStripe() {
       } else {
         updateResult(2, 'error', `HTTP ${resp.status}`);
       }
-    } catch (e: any) {
-      updateResult(2, 'error', e.message);
+    } catch (e: unknown) {
+      updateResult(2, 'error', e instanceof Error ? e.message : String(e));
     }
   };
 
