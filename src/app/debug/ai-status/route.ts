@@ -41,10 +41,10 @@ export async function GET() {
         : "Working",
     },
     models: {
-      fast: "openai/gpt-4o-mini (bio, captions, ideas)",
-      balanced: "google/gemini-flash-1.5 (content, strategy)",
-      premium: "anthropic/claude-3.5-sonnet (ghostwriter)",
-      note: "All models routed through OpenRouter",
+      fast: "openai/gpt-4o-mini - $0.15/$0.60 (bio, captions, ideas)",
+      balanced: "google/gemini-flash-1.5 - $0.075/$0.30 (content, ghostwriter, strategy)",
+      premium: "Available but unused - all features on cheaper models",
+      savings: "Ghostwriter: 98% cheaper ($15 → $0.30 per 1M tokens)",
     },
   });
 }

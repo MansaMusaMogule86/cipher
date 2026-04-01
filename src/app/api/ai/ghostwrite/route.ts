@@ -68,8 +68,8 @@ export async function POST(req: Request) {
           "X-Title": "CIPHER Platform",
         },
         body: JSON.stringify({
-          model: "anthropic/claude-3.5-sonnet",
-          max_tokens: 900,
+          model: "google/gemini-flash-1.5",
+          max_tokens: 800,
           stream: true,
           messages: [
             {
