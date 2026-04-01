@@ -334,6 +334,313 @@ export function CipherRadio() {
   );
 }
 
+// ─── Cipher Radio Compact (Sidebar Version) ────────────────────────────────────
+export function CipherRadioCompact() {
+  const [playing, setPlaying] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+
+  const tracks = [
+    { title: "Midnight Protocol", artist: "CIPHER FM", duration: "3:42" },
+    { title: "Neon Drift", artist: "CIPHER FM", duration: "4:15" },
+    { title: "Shadow Markets", artist: "CIPHER FM", duration: "3:28" },
+  ];
+
+  const toggle = () => setPlaying(!playing);
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "10px", padding: "12px", position: "relative", overflow: "hidden" }}>
+      {/* Ambient glow */}
+      <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "60px", height: "60px", background: "radial-gradient(circle, rgba(200,169,110,0.15) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
+      
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <button
+          onClick={toggle}
+          style={{ 
+            width: "36px", 
+            height: "36px", 
+            borderRadius: "50%", 
+            border: "1px solid rgba(200,169,110,0.4)", 
+            background: playing ? "var(--gold)" : "transparent", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            cursor: "pointer",
+            flexShrink: 0,
+            transition: "all 0.2s"
+          }}
+        >
+          {playing ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#120c00"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gold)"><polygon points="5,3 19,12 5,21" /></svg>
+          )}
+        </button>
+        
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+            <span style={{ 
+              width: "4px", 
+              height: "4px", 
+              borderRadius: "50%", 
+              background: playing ? "#4cc88c" : "var(--dim)", 
+              animation: playing ? "pulse 1.5s infinite" : "none" 
+            }} />
+            <span style={{ ...mono, fontSize: "8px", color: playing ? "#4cc88c" : "var(--dim)", letterSpacing: "0.1em" }}>{playing ? "LIVE" : "OFFLINE"}</span>
+          </div>
+          <div style={{ ...disp, fontSize: "12px", color: "rgba(255,255,255,0.9)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {tracks[currentTrack].title}
+          </div>
+          <div style={{ ...mono, fontSize: "9px", color: "var(--dim)" }}>{tracks[currentTrack].artist}</div>
+        </div>
+
+        <button 
+          onClick={() => setExpanded(!expanded)}
+          style={{ 
+            background: "transparent", 
+            border: "none", 
+            color: "var(--dim)", 
+            cursor: "pointer",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s"
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+        </button>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          {tracks.map((track, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentTrack(i)}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                width: "100%",
+                padding: "6px 8px",
+                borderRadius: "4px",
+                border: "none",
+                background: currentTrack === i ? "rgba(200,169,110,0.1)" : "transparent",
+                cursor: "pointer",
+                marginBottom: "4px"
+              }}
+            >
+              <span style={{ fontSize: "11px", color: currentTrack === i ? "var(--gold)" : "var(--dim)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track.title}</span>
+              <span style={{ ...mono, fontSize: "9px", color: "var(--dim)", flexShrink: 0 }}>{track.duration}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {playing && (
+        <div style={{ 
+          position: "absolute", 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          height: "2px", 
+          background: "linear-gradient(90deg, transparent, var(--gold), transparent)",
+          opacity: 0.5
+        }} />
+      )}
+
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+    </div>
+  );
+}
+
+// ─── AI Daily Brief Widget ─────────────────────────────────────────────────────
+export function DailyBriefWidget() {
+  const [brief, setBrief] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/ai/copilot/daily-brief")
+      .then(r => r.json())
+      .then(data => {
+        setBrief(data.brief);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "12px", padding: "20px" }}>
+      <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", marginBottom: "12px" }}>AI CO-PILOT</div>
+      <div style={{ color: "var(--dim)", fontSize: "13px" }}>Generating your daily brief...</div>
+    </div>
+  );
+
+  if (!brief) return null;
+
+  const moodColors: Record<string, string> = {
+    celebratory: "#4cc88c",
+    calm: "#8dcfff",
+    urgent: "#ff6a6a",
+    focused: "var(--gold)"
+  };
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0f0f1e 0%, #151528 100%)", border: "1px solid rgba(200,169,110,0.15)", borderRadius: "12px", padding: "20px", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "100px", height: "100px", background: `radial-gradient(circle, ${moodColors[brief.mood] || "var(--gold)"}15 0%, transparent 70%)`, borderRadius: "50%" }} />
+      
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+        <div>
+          <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px" }}>AI CO-PILOT · DAILY BRIEF</div>
+          <div style={{ ...disp, fontSize: "20px", color: "rgba(255,255,255,0.95)", lineHeight: 1.3 }}>{brief.headline}</div>
+        </div>
+        <div style={{ 
+          padding: "4px 10px", 
+          borderRadius: "100px", 
+          background: `${moodColors[brief.mood] || "var(--gold)"}15`,
+          border: `1px solid ${moodColors[brief.mood] || "var(--gold)"}30`,
+          ...mono,
+          fontSize: "9px",
+          color: moodColors[brief.mood] || "var(--gold)",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em"
+        }}>{brief.mood}</div>
+      </div>
+
+      {brief.wins?.length > 0 && (
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ ...mono, fontSize: "9px", color: "var(--dim)", marginBottom: "8px", letterSpacing: "0.1em" }}>WINS</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {brief.wins.slice(0, 2).map((win: string, i: number) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "#4cc88c", fontSize: "12px" }}>✓</span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.8)" }}>{win}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {brief.priorities?.length > 0 && (
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ ...mono, fontSize: "9px", color: "var(--dim)", marginBottom: "8px", letterSpacing: "0.1em" }}>TOP PRIORITY</div>
+          <div style={{ background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "8px", padding: "12px" }}>
+            <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.9)", marginBottom: "6px" }}>{brief.priorities[0]?.action}</div>
+            <div style={{ fontSize: "11px", color: "var(--dim)", lineHeight: 1.5 }}>{brief.priorities[0]?.why}</div>
+          </div>
+        </div>
+      )}
+
+      {brief.moneyOpportunity && (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", background: "rgba(76,200,140,0.08)", border: "1px solid rgba(76,200,140,0.2)", borderRadius: "8px" }}>
+          <span style={{ fontSize: "16px" }}>💰</span>
+          <div>
+            <div style={{ ...mono, fontSize: "9px", color: "#4cc88c", letterSpacing: "0.1em" }}>MONEY OPPORTUNITY</div>
+            <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{brief.moneyOpportunity.slice(0, 80)}...</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI Content Ideas Widget ───────────────────────────────────────────────────
+export function ContentIdeasWidget() {
+  const [ideas, setIdeas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const generate = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ai/content/ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: 3 })
+      });
+      const data = await res.json();
+      setIdeas(data.ideas || []);
+      setExpanded(true);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "12px", padding: "18px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <div style={{ ...mono, fontSize: "10px", letterSpacing: "0.14em", color: "var(--gold-dim)" }}>AI CONTENT IDEAS</div>
+        <button 
+          onClick={generate}
+          disabled={loading}
+          style={{ 
+            padding: "6px 12px", 
+            background: "rgba(200,169,110,0.15)", 
+            border: "1px solid rgba(200,169,110,0.3)", 
+            borderRadius: "4px", 
+            color: "var(--gold)", 
+            ...mono, 
+            fontSize: "9px", 
+            cursor: "pointer",
+            opacity: loading ? 0.6 : 1
+          }}
+        >
+          {loading ? "GENERATING..." : "GENERATE"}
+        </button>
+      </div>
+
+      {ideas.length === 0 && !loading && (
+        <div style={{ textAlign: "center", padding: "20px" }}>
+          <div style={{ fontSize: "24px", marginBottom: "8px" }}>✨</div>
+          <div style={{ fontSize: "12px", color: "var(--dim)", marginBottom: "12px" }}>Stuck on what to create?</div>
+          <div style={{ fontSize: "11px", color: "var(--dim)" }}>AI will analyze your niche and suggest 7 days of content.</div>
+        </div>
+      )}
+
+      {ideas.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {ideas.slice(0, expanded ? ideas.length : 2).map((idea, i) => (
+            <div key={i} style={{ padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.9)", fontWeight: 500 }}>{idea.title}</div>
+                <span style={{ 
+                  ...mono, 
+                  fontSize: "8px", 
+                  padding: "2px 6px", 
+                  borderRadius: "100px", 
+                  background: idea.monetization !== "free" ? "rgba(200,169,110,0.15)" : "rgba(255,255,255,0.08)",
+                  color: idea.monetization !== "free" ? "var(--gold)" : "var(--dim)"
+                }}>{idea.monetization}</span>
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--dim)", marginBottom: "8px", lineHeight: 1.5 }}>{idea.description}</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <span style={{ ...mono, fontSize: "8px", color: "var(--dim)" }}>{idea.type}</span>
+                <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                <span style={{ ...mono, fontSize: "8px", color: idea.engagement?.includes("high") ? "#4cc88c" : "var(--dim)" }}>{idea.engagement}</span>
+              </div>
+            </div>
+          ))}
+          {ideas.length > 2 && (
+            <button 
+              onClick={() => setExpanded(!expanded)}
+              style={{ 
+                background: "transparent", 
+                border: "none", 
+                color: "var(--gold)", 
+                ...mono, 
+                fontSize: "10px", 
+                cursor: "pointer",
+                padding: "8px"
+              }}
+            >
+              {expanded ? "SHOW LESS" : `+${ideas.length - 2} MORE`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Legacy Mode ───────────────────────────────────────────────────────────────
 export function LegacyMode() {
   const [enabled, setEnabled] = useState(false);

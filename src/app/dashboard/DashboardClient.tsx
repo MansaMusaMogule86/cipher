@@ -17,10 +17,12 @@ import {
   CipherScore,
   PhantomModeToggle,
   DarkVault,
-  CipherRadio,
+  CipherRadioCompact,
   LegacyMode,
   FanPredictionEngine,
   FanCodeGenerator,
+  DailyBriefWidget,
+  ContentIdeasWidget,
   type CipherScoreData,
 } from "./features/InsaneFeatures";
 
@@ -1224,8 +1226,8 @@ export default function DashboardClient({
             <div style={{ marginBottom: "10px" }}>
               <PhantomModeToggle userId={userId} initialPhantom={phantomMode} />
             </div>
-            <div style={{ marginBottom: "10px", width: "100%", minWidth: 0, maxWidth: "100%", maxHeight: "90px", overflowY: "auto", overflowX: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <CipherRadio />
+            <div style={{ marginBottom: "10px" }}>
+              <CipherRadioCompact />
             </div>
             <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px", textTransform: "uppercase" }}>Signed in as</div>
             <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "14px", wordBreak: "break-all", lineHeight: 1.4 }}>{userEmail}</div>
@@ -1289,7 +1291,14 @@ export default function DashboardClient({
               <>
                 <CipherScore data={cipherScoreData} />
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: "12px" }}>
+                {/* AI Daily Brief - Prominent at top */}
+                <DailyBriefWidget />
+
+                {/* AI Content Ideas & Stats Grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  <ContentIdeasWidget />
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px" }}>
                   {[
                     { label: "Total Earnings", value: money.format(wallet.total_earnings), sub: "Net processed" },
                     { label: "Balance Available", value: money.format(wallet.balance), sub: "Ready for payout" },
@@ -1302,6 +1311,7 @@ export default function DashboardClient({
                       <div style={{ color: "var(--dim)", fontSize: "12px", marginTop: "8px" }}>{card.sub}</div>
                     </div>
                   ))}
+                  </div>
                 </div>
 
                 <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "18px" }}>
