@@ -36,10 +36,10 @@
 - [ ] Seed test data for authenticated test user
 
 ### Deployment
-- [ ] Add `OPENROUTER_API_KEY` to Vercel production env
-- [ ] Add `ANTHROPIC_API_KEY` to Vercel production env  
+- [ ] Add `OPENROUTER_API_KEY` to Vercel production env (ONLY ONE NEEDED NOW)
 - [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to Vercel production env
 - [ ] Redeploy after env vars added
+- [x] Removed Anthropic dependency - all AI via OpenRouter
 
 ### Future AI Features
 - [ ] AI Onboarding Wizard UI — Step-by-step creator setup
