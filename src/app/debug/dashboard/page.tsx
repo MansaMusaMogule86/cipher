@@ -32,7 +32,7 @@ export default function DebugDashboard() {
     const userId = authUser.id;
     const results: DashboardQuery[] = [];
 
-    const testQuery = async (name: string, queryFn: () => Promise<any>) => {
+    const testQuery = async (name: string, queryFn: () => PromiseLike<any>) => {
       const start = performance.now();
       try {
         const { data, error, count } = await queryFn();
