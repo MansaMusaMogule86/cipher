@@ -379,7 +379,7 @@ export function CipherRadio() {
 export function CipherRadioCompact() {
   const [playing, setPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const tracks = [
     { title: "Midnight Protocol", artist: "CIPHER FM", duration: "3:42" },
@@ -440,7 +440,7 @@ export function CipherRadioCompact() {
           style={{ 
             background: "transparent", 
             border: "none", 
-            color: "var(--dim)", 
+            color: "var(--gold-dim)", 
             cursor: "pointer",
             transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
             transition: "transform 0.2s"
@@ -464,12 +464,23 @@ export function CipherRadioCompact() {
                 padding: "6px 8px",
                 borderRadius: "4px",
                 border: "none",
-                background: currentTrack === i ? "rgba(200,169,110,0.1)" : "transparent",
+                background: currentTrack === i ? "rgba(200,169,110,0.15)" : "rgba(255,255,255,0.02)",
                 cursor: "pointer",
-                marginBottom: "4px"
+                marginBottom: "4px",
+                transition: "all 0.15s"
+              }}
+              onMouseEnter={(e) => {
+                if (currentTrack !== i) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(200,169,110,0.08)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (currentTrack !== i) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+                }
               }}
             >
-              <span style={{ fontSize: "11px", color: currentTrack === i ? "var(--gold)" : "var(--dim)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track.title}</span>
+              <span style={{ fontSize: "11px", color: currentTrack === i ? "var(--gold)" : "var(--dim)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: currentTrack === i ? 500 : 400 }}>{track.title}</span>
               <span style={{ ...mono, fontSize: "9px", color: "var(--dim)", flexShrink: 0 }}>{track.duration}</span>
             </button>
           ))}
