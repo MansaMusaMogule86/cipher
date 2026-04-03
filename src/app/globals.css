@@ -35,8 +35,6 @@ body {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── CURSOR ── */
-body:has(#cipher-cursor) * { cursor: none !important; }
-
 #cipher-cursor {
   position: fixed;
   width: 8px; height: 8px;

@@ -21,7 +21,7 @@ type PurchaseReceiptData = {
   to: string;
 };
 
-const emailTemplate = (content: string, title: string) => `
+const emailTemplate = (content: string, _title: string) => `
 <!DOCTYPE html>
 <html>
 <head>

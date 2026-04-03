@@ -4,7 +4,7 @@
  * All AI requests route through OpenRouter for cost optimization.
  * Models:
  * - "fast": GPT-4o-mini (cheap, fast)
- * - "balanced": Gemini Flash (cheapest, good quality)
+ * - "balanced": Gemini 2.5 Flash Lite (cheap, good quality)
  * - "premium": Claude Sonnet via OpenRouter (best quality)
  */
 
@@ -26,12 +26,12 @@ const MODELS: Record<TaskTier, ModelConfig> = {
     costPer1MInput: 0.15,
     costPer1MOutput: 0.60,
   },
-  // BALANCED: Gemini Flash - cheapest good model
+  // BALANCED: Gemini 2.5 Flash Lite - low cost, current stable Google option
   balanced: {
-    model: "google/gemini-flash-1.5",
+    model: "google/gemini-2.5-flash-lite",
     maxTokens: 800,
-    costPer1MInput: 0.075,
-    costPer1MOutput: 0.30,
+    costPer1MInput: 0.10,
+    costPer1MOutput: 0.40,
   },
   // PREMIUM: Claude Sonnet via OpenRouter - best quality
   premium: {

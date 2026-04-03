@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const disp: React.CSSProperties = { fontFamily: "var(--font-display)" };
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 type DailyBrief = {
   mood?: string;
@@ -50,15 +48,6 @@ type PricingRecommendation = {
     standard?: number;
   };
   factors?: string[];
-};
-
-type OnboardingSnapshot = {
-  niche: string;
-  confidence: string;
-  pricingRecommendation: string;
-  first30Days: string[];
-  platformPriority: string[];
-  contentPillars: Array<{ name: string; description: string }>;
 };
 
 // ─── CIPHER Score ──────────────────────────────────────────────────────────────
@@ -218,7 +207,7 @@ export function PhantomModeToggle({ userId, initialPhantom }: { userId: string; 
 }
 
 // ─── Dark Vault ────────────────────────────────────────────────────────────────
-export function DarkVault({ userId, hasPin, onSetup }: { userId: string; hasPin: boolean; onSetup: () => void }) {
+export function DarkVault({ hasPin, onSetup }: { userId: string; hasPin: boolean; onSetup: () => void }) {
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -247,7 +236,7 @@ export function DarkVault({ userId, hasPin, onSetup }: { userId: string; hasPin:
       setMsg("Vault PIN set successfully");
       onSetup();
       setTimeout(() => setOpen(false), 1500);
-    } catch (err) {
+    } catch {
       setMsg("Could not set PIN");
     } finally {
       setLoading(false);
@@ -313,7 +302,6 @@ export function DarkVault({ userId, hasPin, onSetup }: { userId: string; hasPin:
 export function CipherRadio() {
   const [playing, setPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const tracks = [
     { title: "Midnight Protocol", artist: "CIPHER FM", duration: "3:42" },
@@ -736,59 +724,6 @@ export function ContentIdeasWidget() {
       )}
 
       {saveMsg && <div style={{ marginTop: "10px", fontSize: "11px", color: saveMsg.startsWith("Saved") ? "var(--gold)" : "#ff6a6a" }}>{saveMsg}</div>}
-    </div>
-  );
-}
-
-export function OnboardingSnapshotWidget({
-  snapshot,
-  onOpen,
-}: {
-  snapshot: OnboardingSnapshot | null;
-  onOpen: () => void;
-}) {
-  return (
-    <div style={{ background: "linear-gradient(135deg, #0f0f1e 0%, #151528 100%)", border: "1px solid rgba(200,169,110,0.15)", borderRadius: "12px", padding: "20px", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at top right, rgba(200,169,110,0.08), transparent 45%)", pointerEvents: "none" }} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", marginBottom: "14px" }}>
-        <div>
-          <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "var(--gold-dim)", marginBottom: "6px" }}>ONBOARDING BEAST AI</div>
-          <div style={{ ...disp, fontSize: "22px", color: "rgba(255,255,255,0.94)" }}>{snapshot?.niche || "Build your creator strategy"}</div>
-        </div>
-        <button onClick={onOpen} style={{ padding: "8px 12px", background: "rgba(200,169,110,0.14)", border: "1px solid rgba(200,169,110,0.28)", borderRadius: "6px", color: "var(--gold)", ...mono, fontSize: "9px", cursor: "pointer" }}>
-          {snapshot ? "REFINE" : "START"}
-        </button>
-      </div>
-
-      {!snapshot && (
-        <div style={{ fontSize: "12px", color: "var(--dim)", lineHeight: 1.6 }}>
-          Run one onboarding strategy pass to generate your niche, pricing angle, content pillars, and 30-day growth plan.
-        </div>
-      )}
-
-      {snapshot && (
-        <div style={{ display: "grid", gap: "12px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div style={{ padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-              <div style={{ ...mono, fontSize: "8px", color: "var(--gold-dim)", marginBottom: "4px" }}>CONFIDENCE</div>
-              <div style={{ fontSize: "13px", color: "var(--white)" }}>{snapshot.confidence || "-"}</div>
-            </div>
-            <div style={{ padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-              <div style={{ ...mono, fontSize: "8px", color: "var(--gold-dim)", marginBottom: "4px" }}>STARTING PRICE</div>
-              <div style={{ fontSize: "13px", color: "var(--white)" }}>{snapshot.pricingRecommendation || "-"}</div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ ...mono, fontSize: "8px", color: "var(--gold-dim)", marginBottom: "6px" }}>FIRST 30 DAYS</div>
-            <div style={{ display: "grid", gap: "6px" }}>
-              {snapshot.first30Days.slice(0, 3).map((step, index) => (
-                <div key={`${step}-${index}`} style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5 }}>{step}</div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

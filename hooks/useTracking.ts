@@ -1,5 +1,5 @@
-﻿'use client';
-import { useEffect, useRef } from 'react';
+'use client';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { trackVisitor, trackButtonClick } from '@/lib/analytics/posthog';
 

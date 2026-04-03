@@ -93,15 +93,6 @@ export type V2ContentPlan = {
   createdAt: string;
 };
 
-export type V2OnboardingSnapshot = {
-  niche: string;
-  confidence: string;
-  pricingRecommendation: string;
-  first30Days: string[];
-  platformPriority: string[];
-  contentPillars: Array<{ name: string; description: string }>;
-};
-
 // ─── Safe number parser ─────────────────────────────────────────────────────
 
 function safe(v: unknown): number {
@@ -575,40 +566,6 @@ export async function getCreatorContentPlans(userId: string): Promise<V2ContentP
     plannedFor: plan.planned_for || null,
     createdAt: plan.created_at || "",
   }));
-}
-
-export async function getCreatorOnboardingSnapshot(userId: string): Promise<V2OnboardingSnapshot | null> {
-  const supabase = await createClient();
-
-  const { data: row } = await supabase
-    .from("creator_onboarding")
-    .select("analysis")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const analysis = row?.analysis as Record<string, unknown> | undefined;
-  if (!analysis) return null;
-
-  const contentPillars = Array.isArray(analysis.contentPillars)
-    ? analysis.contentPillars
-        .map((pillar) => {
-          const value = pillar as Record<string, unknown>;
-          return {
-            name: String(value.name ?? ""),
-            description: String(value.description ?? ""),
-          };
-        })
-        .filter((pillar) => pillar.name || pillar.description)
-    : [];
-
-  return {
-    niche: String(analysis.niche ?? ""),
-    confidence: String(analysis.confidence ?? ""),
-    pricingRecommendation: String((analysis.pricing as { recommendation?: string } | undefined)?.recommendation ?? ""),
-    first30Days: Array.isArray(analysis.first30Days) ? analysis.first30Days.map((item) => String(item)) : [],
-    platformPriority: Array.isArray(analysis.platformPriority) ? analysis.platformPriority.map((item) => String(item)) : [],
-    contentPillars,
-  };
 }
 
 // ─── 7-day chart data from v2 ───────────────────────────────────────────────

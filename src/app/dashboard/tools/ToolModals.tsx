@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useId } from "react";
+import { useState, useEffect, useRef, useId, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -429,142 +429,6 @@ export function PriceOptimizerModal({ onClose }: { onClose: () => void }) {
       )}
 
       {err && <div style={{ fontSize: "12px", color: "#ff6a6a" }}>{err}</div>}
-    </Modal>
-  );
-}
-
-// ─── Onboarding Beast AI ─────────────────────────────────────────────────────
-export function OnboardingBeastModal({ onClose }: { onClose: () => void }) {
-  const [interests, setInterests] = useState("");
-  const [contentTypes, setContentTypes] = useState("");
-  const [experience, setExperience] = useState("beginner");
-  const [currentPlatforms, setCurrentPlatforms] = useState("");
-  const [goals, setGoals] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [analysis, setAnalysis] = useState<null | {
-    niche?: string;
-    confidence?: string;
-    subNiches?: string[];
-    handleSuggestions?: string[];
-    pricing?: { recommendation?: string; rationale?: string };
-    contentPillars?: Array<{ name?: string; description?: string }>;
-    targetAudience?: { primary?: string; psychographics?: string[]; painPoints?: string };
-    platformPriority?: string[];
-    first30Days?: string[];
-  }>(null);
-
-  const listFromText = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
-
-  const runAnalysis = async () => {
-    setLoading(true);
-    setError("");
-    setAnalysis(null);
-
-    try {
-      const res = await fetch("/api/ai/onboarding/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          interests: listFromText(interests),
-          contentTypes: listFromText(contentTypes),
-          experience,
-          currentPlatforms: listFromText(currentPlatforms),
-          followerCounts: {},
-          goals: listFromText(goals),
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed");
-      setAnalysis(data.analysis);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputStyle: React.CSSProperties = { background: "#0a0a14", border: "1px solid rgba(255,255,255,0.1)", color: "var(--white)", borderRadius: "6px", padding: "10px", width: "100%", fontSize: "13px" };
-
-  return (
-    <Modal title="Onboarding Beast AI" sub="Build your niche, pricing, pillars, and first 30-day plan from one strategy pass" onClose={onClose}>
-      <div style={{ display: "grid", gap: "10px", marginBottom: "14px" }}>
-        <input value={interests} onChange={e => setInterests(e.target.value)} placeholder="Interests: luxury, fashion, mystery" style={inputStyle} />
-        <input value={contentTypes} onChange={e => setContentTypes(e.target.value)} placeholder="Content types: photos, reels, exclusive drops" style={inputStyle} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-          <select value={experience} onChange={e => setExperience(e.target.value)} style={inputStyle}>
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-          <input value={currentPlatforms} onChange={e => setCurrentPlatforms(e.target.value)} placeholder="Platforms: instagram, x, tiktok" style={inputStyle} />
-        </div>
-        <textarea value={goals} onChange={e => setGoals(e.target.value)} placeholder="Goals: first 50 paying fans, premium brand, recurring revenue" rows={3} style={{ ...inputStyle, resize: "vertical" }} />
-      </div>
-
-      <button onClick={runAnalysis} disabled={loading} style={{ border: "none", borderRadius: "6px", padding: "10px 16px", background: "var(--gold)", color: "#120c00", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer", marginBottom: "16px" }}>
-        {loading ? "ANALYZING..." : "RUN ONBOARDING BEAST"}
-      </button>
-
-      {error && <div style={{ marginBottom: "12px", fontSize: "12px", color: "#ff6a6a" }}>{error}</div>}
-
-      {analysis && (
-        <div style={{ display: "grid", gap: "10px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div style={{ border: "1px solid rgba(200,169,110,0.35)", borderRadius: "8px", padding: "12px", background: "rgba(200,169,110,0.06)" }}>
-              <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "6px" }}>NICHE</div>
-              <div style={{ ...disp, fontSize: "24px", color: "var(--gold)" }}>{analysis.niche || "Unknown"}</div>
-              <div style={{ fontSize: "12px", color: "var(--dim)", marginTop: "4px" }}>{analysis.confidence || ""}</div>
-            </div>
-            <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "12px", background: "rgba(255,255,255,0.02)" }}>
-              <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "6px" }}>STARTING PRICE</div>
-              <div style={{ ...disp, fontSize: "24px", color: "var(--gold)" }}>{analysis.pricing?.recommendation || "-"}</div>
-              <div style={{ fontSize: "12px", color: "var(--dim)", marginTop: "4px" }}>{analysis.pricing?.rationale || ""}</div>
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "12px", background: "rgba(255,255,255,0.02)" }}>
-            <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "8px" }}>CONTENT PILLARS</div>
-            <div style={{ display: "grid", gap: "8px" }}>
-              {(analysis.contentPillars || []).map((pillar, index) => (
-                <div key={`${pillar.name}-${index}`} style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.6 }}>
-                  <strong style={{ color: "var(--gold)" }}>{pillar.name || `Pillar ${index + 1}`}</strong>: {pillar.description || ""}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "12px", background: "rgba(255,255,255,0.02)" }}>
-              <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "8px" }}>HANDLE SUGGESTIONS</div>
-              <div style={{ display: "grid", gap: "6px" }}>
-                {(analysis.handleSuggestions || []).slice(0, 5).map((handle, index) => (
-                  <div key={`${handle}-${index}`} style={{ fontSize: "12px", color: "var(--muted)" }}>{handle}</div>
-                ))}
-              </div>
-            </div>
-            <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "12px", background: "rgba(255,255,255,0.02)" }}>
-              <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "8px" }}>FIRST 30 DAYS</div>
-              <div style={{ display: "grid", gap: "6px" }}>
-                {(analysis.first30Days || []).map((step, index) => (
-                  <div key={`${step}-${index}`} style={{ fontSize: "12px", color: "var(--muted)" }}>{step}</div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "12px", background: "rgba(255,255,255,0.02)" }}>
-            <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", marginBottom: "8px" }}>TARGET AUDIENCE</div>
-            <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.7 }}>
-              <div><strong style={{ color: "var(--gold)" }}>Primary:</strong> {analysis.targetAudience?.primary || "-"}</div>
-              <div><strong style={{ color: "var(--gold)" }}>Psychographics:</strong> {(analysis.targetAudience?.psychographics || []).join(", ") || "-"}</div>
-              <div><strong style={{ color: "var(--gold)" }}>Pain points:</strong> {analysis.targetAudience?.painPoints || "-"}</div>
-              <div><strong style={{ color: "var(--gold)" }}>Platform priority:</strong> {(analysis.platformPriority || []).join(", ") || "-"}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </Modal>
   );
 }
@@ -1084,7 +948,7 @@ type Voice = {
   is_default?: boolean;
 };
 
-export function VoiceCloneModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function VoiceCloneModal({ onClose }: { userId: string; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"clone" | "generate">("generate");
   const [voices, setVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1104,11 +968,7 @@ export function VoiceCloneModal({ userId, onClose }: { userId: string; onClose: 
   const [similarity, setSimilarity] = useState(0.75);
   const [audioUrl, setAudioUrl] = useState("");
 
-  useEffect(() => {
-    fetchVoices();
-  }, []);
-
-  const fetchVoices = async () => {
+  const fetchVoices = useCallback(async () => {
     try {
       const res = await fetch("/api/ai/voice/tts");
       const data = await res.json();
@@ -1120,12 +980,16 @@ export function VoiceCloneModal({ userId, onClose }: { userId: string; onClose: 
       if (allVoices.length > 0 && !selectedVoice) {
         setSelectedVoice(allVoices[0].voice_id);
       }
-    } catch (e) {
+    } catch {
       setMsg("Failed to load voices");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedVoice]);
+
+  useEffect(() => {
+    void fetchVoices();
+  }, [fetchVoices]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -1166,7 +1030,7 @@ export function VoiceCloneModal({ userId, onClose }: { userId: string; onClose: 
       setVoiceName("");
       setVoiceDesc("");
       setFiles([]);
-      fetchVoices();
+      void fetchVoices();
       setActiveTab("generate");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Cloning failed");
@@ -1219,7 +1083,7 @@ export function VoiceCloneModal({ userId, onClose }: { userId: string; onClose: 
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
-      fetchVoices();
+      void fetchVoices();
       setMsg("Voice deleted");
     } catch {
       setMsg("Failed to delete voice");

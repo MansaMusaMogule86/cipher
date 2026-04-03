@@ -531,7 +531,6 @@ export default function Apply() {
         }
         @media (hover: hover) and (pointer: fine) {
           #cipher-cursor, #cipher-ring { display: block; }
-          body:has(#cipher-cursor) * { cursor: none !important; }
         }
         @media (hover: none), (pointer: coarse) {
           #cipher-cursor, #cipher-ring { display: none !important; }

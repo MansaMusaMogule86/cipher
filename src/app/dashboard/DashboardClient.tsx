@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   BioGeneratorModal,
   CaptionGeneratorModal,
-  OnboardingBeastModal,
   PriceOptimizerModal,
   ContentCalendarModal,
   FanMessageBlastModal,
@@ -24,7 +23,6 @@ import {
   FanCodeGenerator,
   DailyBriefWidget,
   ContentIdeasWidget,
-  OnboardingSnapshotWidget,
   FanPersonasWidget,
   DynamicPricingWidget,
   VoiceCloneWidget,
@@ -461,7 +459,6 @@ export default function DashboardClient({
     earnings: import("@/lib/dashboard-v2").V2EarningsBreakdown | null;
     toolGating: import("@/lib/dashboard-v2").ToolGating | null;
     contentPlans: import("@/lib/dashboard-v2").V2ContentPlan[];
-    onboardingSnapshot: import("@/lib/dashboard-v2").V2OnboardingSnapshot | null;
   };
 }) {
   const {
@@ -1232,17 +1229,6 @@ export default function DashboardClient({
     window.location.href = "/login";
   };
 
-  // Compute CIPHER total score for legacy
-  function calcTotalScore(d: CipherScoreData) {
-    const earnings = Math.min(Math.floor((d.totalEarnings / 10000) * 200), 200);
-    const fans = Math.min(Math.floor((d.fanCount / 100) * 200), 200);
-    const content = Math.min(Math.floor((d.contentCount / 20) * 150), 150);
-    const payouts = Math.min(Math.floor((d.withdrawalCount / 5) * 150), 150);
-    const retention = Math.min(Math.floor((d.retentionRate / 100) * 300), 300);
-    return earnings + fans + content + payouts + retention;
-  }
-  const totalCipherScore = calcTotalScore(cipherScoreData);
-
   return (
     <>
       <div id="db-cursor" style={{ position: "fixed", width: "8px", height: "8px", background: "var(--gold)", borderRadius: "50%", pointerEvents: "none", zIndex: 99999, top: "-100px", left: "-100px", transform: "translate(-50%,-50%)", mixBlendMode: "screen" }} />
@@ -1361,14 +1347,6 @@ export default function DashboardClient({
 
                 {/* AI Daily Brief - Prominent at top */}
                 <DailyBriefWidget />
-
-                <OnboardingSnapshotWidget
-                  snapshot={v2Data?.onboardingSnapshot ?? null}
-                  onOpen={() => {
-                    setActiveSection("tools");
-                    setActiveTool("onboarding");
-                  }}
-                />
 
                 {/* AI Content Ideas & Voice Clone Grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -2019,7 +1997,6 @@ export default function DashboardClient({
               <>
                 {activeTool === "bio" && <BioGeneratorModal userId={userId} onClose={() => setActiveTool(null)} />}
                 {activeTool === "caption" && <CaptionGeneratorModal onClose={() => setActiveTool(null)} />}
-                {activeTool === "onboarding" && <OnboardingBeastModal onClose={() => setActiveTool(null)} />}
                 {activeTool === "price" && <PriceOptimizerModal onClose={() => setActiveTool(null)} />}
                 {activeTool === "calendar" && <ContentCalendarModal userId={userId} onClose={() => setActiveTool(null)} />}
                 {activeTool === "blast" && <FanMessageBlastModal userId={userId} fanCodeCount={fanCodeCount} onClose={() => setActiveTool(null)} />}
@@ -2028,7 +2005,6 @@ export default function DashboardClient({
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "10px" }}>
                   {[
-                    { key: "onboarding", title: "Onboarding Beast AI", desc: "Build your niche, pricing, audience, handles, and first 30-day creator strategy in one pass.", icon: "⚚" },
                     { key: "bio", title: "Bio Generator", desc: "AI writes 3 creator bio variations from keywords. Pick your favorite, save it.", icon: "✦" },
                     { key: "caption", title: "Caption Generator", desc: "AI writes platform-optimized captions for photos, videos, and announcements.", icon: "✎" },
                     { key: "price", title: "Price Optimizer", desc: "Analyzes your real transaction data. Recommends optimal price with AI confidence score.", icon: "◈" },
@@ -2358,7 +2334,6 @@ export default function DashboardClient({
         }
         @media (hover: hover) and (pointer: fine) {
           #db-cursor, #db-ring { display: block; }
-          body:has(#db-cursor) * { cursor: none !important; }
         }
         @media (hover: none), (pointer: coarse) {
           #db-cursor, #db-ring { display: none !important; }

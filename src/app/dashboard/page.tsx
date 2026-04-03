@@ -12,7 +12,6 @@ import {
   getToolGating,
   getV2ChartData,
   getCreatorContentPlans,
-  getCreatorOnboardingSnapshot,
   type V2DashboardOverview,
   type V2ContentStats,
   type V2FanStats,
@@ -35,6 +34,16 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: onboardingRow } = await supabase
+    .from("creator_onboarding")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!onboardingRow) {
+    redirect("/dashboard/onboarding");
+  }
+
   const missingTables = new Set<string>();
 
   // ─── V2 MONETIZATION DATA ───────────────────────────────────────────────────
@@ -46,7 +55,6 @@ export default async function DashboardPage() {
   let v2Transactions: Awaited<ReturnType<typeof getCreatorRecentTransactions>> = [];
   let toolGating: Awaited<ReturnType<typeof getToolGating>> | null = null;
   let contentPlans: Awaited<ReturnType<typeof getCreatorContentPlans>> = [];
-  let onboardingSnapshot: Awaited<ReturnType<typeof getCreatorOnboardingSnapshot>> = null;
 
   try {
     [
@@ -58,7 +66,6 @@ export default async function DashboardPage() {
       v2Transactions,
       toolGating,
       contentPlans,
-      onboardingSnapshot,
     ] = await Promise.all([
       getCreatorDashboardOverview(user.id),
       getCreatorContentStats(user.id),
@@ -68,7 +75,6 @@ export default async function DashboardPage() {
       getCreatorRecentTransactions(user.id, 20),
       getToolGating(user.id),
       getCreatorContentPlans(user.id),
-      getCreatorOnboardingSnapshot(user.id),
     ]);
   } catch (err) {
     console.error("V2 data fetch error:", err);
@@ -115,6 +121,10 @@ export default async function DashboardPage() {
     .select("pin_hash")
     .eq("creator_id", user.id)
     .maybeSingle();
+
+  if (vaultPinErr) {
+    console.error("Vault pin error:", vaultPinErr);
+  }
 
   const hasVaultPin = Boolean(vaultPinRow?.pin_hash ?? creatorProfile?.vault_pin_hash);
 
@@ -294,6 +304,5 @@ export default async function DashboardPage() {
     earnings: v2Earnings,
     toolGating,
     contentPlans,
-    onboardingSnapshot,
   }} />;
 }

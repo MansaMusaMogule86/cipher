@@ -41,7 +41,7 @@ export async function GET() {
     },
     models: {
       fast: "openai/gpt-4o-mini - $0.15/$0.60 (bio, captions, pricing, some idea flows)",
-      balanced: "google/gemini-flash-1.5 - $0.075/$0.30 (daily brief, personas, strategy)",
+      balanced: "google/gemini-2.5-flash-lite - $0.10/$0.40 (daily brief, personas, strategy)",
       premium: "Available but unused - all features on cheaper models",
       savings: "Ghostwriter: 98% cheaper ($15 → $0.30 per 1M tokens)",
     },

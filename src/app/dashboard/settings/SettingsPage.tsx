@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -82,7 +82,7 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
-  const showMessage = (msg: string, isError = false) => {
+  const showMessage = (msg: string, _isError = false) => {
     setMessage(msg);
     setTimeout(() => setMessage(""), 5000);
   };
@@ -139,8 +139,8 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
       showMessage("Profile saved successfully!");
       setAvatarFile(null);
       setBannerFile(null);
-    } catch (err) {
-      console.error("Save error:", err);
+    } catch (_err) {
+      console.error("Save error:", _err);
       showMessage("Failed to save profile", true);
     } finally {
       setSaving(false);
@@ -169,7 +169,7 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err) {
+    } catch (_err) {
       showMessage("Failed to change password", true);
     } finally {
       setChangingPassword(false);
@@ -213,7 +213,7 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
 
       if (error) throw error;
       showMessage("Payout settings saved!");
-    } catch (err) {
+    } catch (_err) {
       showMessage("Failed to save payout settings", true);
     } finally {
       setSaving(false);
@@ -238,7 +238,7 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
 
       if (error) throw error;
       showMessage("Notification preferences saved!");
-    } catch (err) {
+    } catch (_err) {
       showMessage("Failed to save notifications", true);
     } finally {
       setSaving(false);
@@ -261,7 +261,7 @@ export function SettingsPage({ initialData }: { initialData: SettingsData }) {
 
       if (error) throw error;
       showMessage("Privacy settings saved!");
-    } catch (err) {
+    } catch (_err) {
       showMessage("Failed to save privacy settings", true);
     } finally {
       setSaving(false);

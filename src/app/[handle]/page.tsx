@@ -4,9 +4,16 @@ import type { Metadata } from "next";
 import FanPageClient from "@/app/components/FanPageClient";
 
 function getServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    supabaseUrl,
+    serviceRoleKey
   );
 }
 
@@ -17,6 +24,13 @@ export async function generateMetadata({ params }: HandleParams): Promise<Metada
   const clean = handle.replace(/^@/, "").toLowerCase();
 
   const supabase = getServiceClient();
+  if (!supabase) {
+    return {
+      title: "CIPHER - Creator Platform",
+      description: "Exclusive content. Anonymous access. cipher.co",
+    };
+  }
+
   const { data: creator } = await supabase
     .from("creator_applications")
     .select("name, bio, category")
@@ -51,6 +65,9 @@ export default async function HandlePage({
   const clean = handle.replace(/^@/, "").toLowerCase();
 
   const supabase = getServiceClient();
+  if (!supabase) {
+    notFound();
+  }
 
   const { data: creator } = await supabase
     .from("creator_applications")

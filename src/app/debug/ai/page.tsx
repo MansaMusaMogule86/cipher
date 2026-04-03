@@ -279,7 +279,7 @@ export default function DebugAi() {
             <p style={{ marginBottom: 8 }}>OpenRouter: <span style={{ color: envStatus.openrouter ? '#22c55e' : '#ef4444' }}>{envStatus.openrouter ? '✓ Configured' : '✗ Missing'}</span></p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <div><span style={{ color: '#60a5fa' }}>fast:</span> gpt-4o-mini</div>
-              <div><span style={{ color: '#c084fc' }}>balanced:</span> gemini-flash-1.5</div>
+              <div><span style={{ color: '#c084fc' }}>balanced:</span> gemini-2.5-flash-lite</div>
               <div><span style={{ color: '#c8a96e' }}>premium:</span> claude-3.5-sonnet</div>
             </div>
           </div>
