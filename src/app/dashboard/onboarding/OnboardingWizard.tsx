@@ -1143,7 +1143,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
     <div>
       <div style={styles.stepBadge}>
         <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-        Step 1 of 6
+        Step 1 of {totalSteps}
       </div>
       <h1 style={styles.headline}>Define your edge</h1>
       <p style={styles.subheadline}>
@@ -1221,7 +1221,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
     <div>
       <div style={styles.stepBadge}>
         <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-        Step 2 of 6
+        Step 2 of {totalSteps}
       </div>
       <h1 style={styles.headline}>What will fans pay for?</h1>
       <p style={styles.subheadline}>
@@ -1333,7 +1333,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
       <div>
         <div style={styles.stepBadge}>
           <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-          Step 3 of 6
+          Step 3 of {totalSteps}
         </div>
         <h1 style={styles.headline}>Unlock your audience data</h1>
         <p style={styles.subheadline}>
@@ -1472,7 +1472,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
       <div>
         <div style={styles.stepBadge}>
           <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-          Step 4 of 7
+          Step 4 of {totalSteps}
         </div>
         <h1 style={styles.headline}>Build your public identity</h1>
         <p style={styles.subheadline}>
@@ -1702,7 +1702,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
       <div>
         <div style={styles.stepBadge}>
           <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-          Step 5 of 7
+          Step 5 of {totalSteps}
         </div>
         <h1 style={styles.headline}>We found your edge</h1>
         <p style={styles.subheadline}>
@@ -1832,7 +1832,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
       <div>
         <div style={styles.stepBadge}>
           <span style={{ width: "20px", height: "1px", background: "var(--gold-dim)" }} />
-          Step 6 of 7
+          Step 6 of {totalSteps}
         </div>
         <h1 style={styles.headline}>Launch Command</h1>
         
