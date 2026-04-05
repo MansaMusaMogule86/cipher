@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       .from("transactions_v2")
       .select(`
         *,
-        creator:creator_id(display_name, handle, email:auth.users!inner(email)),
+        creator:creator_id(display_name, handle),
         content:content_id(title, price),
         fan_code_ref:fan_code_id(code)
       `, { count: "exact" });

@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    if (isPopup) return popupCloseResponse(true);
+    if (isPopup) return popupCloseResponse(true, "Twitter");
     return clearOAuthCookies(NextResponse.redirect(dashboardUrl(req, { connected: "twitter" })));
   } catch (err) {
     console.error("Twitter callback failed", err);

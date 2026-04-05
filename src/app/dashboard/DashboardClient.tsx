@@ -2693,7 +2693,7 @@ export default function DashboardClient({
                   <div style={{ fontSize: "13px", color: "var(--dim)", marginBottom: "16px" }}>
                     A 4-digit PIN-protected space only you can access. SHA-256 hashed. Never stored in plaintext.
                   </div>
-                  <DarkVault userId={userId} hasPin={hasVaultPin} onSetup={() => {}} />
+                  <DarkVault hasPin={hasVaultPin} onSetup={() => {}} />
                 </div>
               </div>
             )}

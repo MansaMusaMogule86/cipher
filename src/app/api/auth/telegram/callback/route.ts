@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    if (isPopup) return popupCloseResponse(true);
+    if (isPopup) return popupCloseResponse(true, "Telegram");
     return NextResponse.redirect(dashboardUrl(req, { connected: "telegram" }));
   } catch (err) {
     console.error("Telegram callback failed", err);
