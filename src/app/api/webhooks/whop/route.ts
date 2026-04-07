@@ -1,6 +1,8 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { generateAccessToken } from "@/lib/access-token";
+import { createUnlock } from "@/lib/unlocks";
 
 // Service-role client — bypasses RLS for webhook processing
 function getSupabase() {
@@ -106,6 +108,14 @@ export async function POST(req: Request) {
     return handlePayoutCompleted(supabase, data);
   }
 
+  // ── membership.went_valid — offer purchased on Whop ──────────────────────
+  // Triggered when a buyer's membership becomes active (one-time or recurring).
+  // Whop payload includes metadata.offer_id and membership.user.id which we
+  // set when creating the Whop product via provisionWhopCheckout.
+  if (eventType === "membership.went_valid") {
+    return handleMembershipValid(data);
+  }
+
   // Unknown event — return 200 so Whop stops retrying
   return NextResponse.json({ received: true, action: "ignored", event: eventType });
 }
@@ -129,7 +139,38 @@ async function handlePaymentCompleted(
 
   // ── Payment Link access grant (takes priority if metadata.payment_link_id set) ──
   if (paymentLinkId) {
-    const result = await grantPaymentLinkAccess(supabase, paymentLinkId, whopPaymentId, buyerEmail || null);
+      const { data: existingTx } = await supabase
+        .from("transactions_v2")
+        .select("id")
+        .eq("whop_payment_id", whopPaymentId)
+        .maybeSingle();
+
+      if (existingTx) {
+        const { data: existingAccess } = await supabase
+          .from("payment_link_accesses")
+          .select("access_token")
+          .eq("payment_link_id", paymentLinkId)
+          .eq("transaction_ref", whopPaymentId)
+          .maybeSingle();
+
+        if (existingAccess?.access_token) {
+          return NextResponse.json({
+            received: true,
+            action: "payment_link_access_granted",
+            access_token: existingAccess.access_token,
+            pay_url: `/fan/access/${existingAccess.access_token}`,
+          });
+        }
+      }
+
+      const whopProductId = String(data.product_id ?? metadata.whop_product_id ?? "");
+      const result = await grantPaymentLinkAccess(supabase, {
+        paymentLinkId,
+        whopOrderId: whopPaymentId,
+        buyerEmail: buyerEmail || null,
+        amountCents,
+        whopProductId: whopProductId || null,
+      });
     console.info(
       `[whop-webhook] payment.completed (payment_link) — link=${paymentLinkId} token=${result.access_token}`
     );
@@ -137,7 +178,7 @@ async function handlePaymentCompleted(
       received:     true,
       action:       "payment_link_access_granted",
       access_token: result.access_token,
-      pay_url:      `/pay/${paymentLinkId}?token=${result.access_token}`,
+      pay_url:      `/fan/access/${result.access_token}`,
     });
   }
 
@@ -233,15 +274,52 @@ async function handlePaymentCompleted(
 // ─────────────────────────────────────────────────────────────────────────────
 async function grantPaymentLinkAccess(
   supabase: ReturnType<typeof getSupabase>,
-  paymentLinkId: string,
-  transactionRef: string,
-  buyerEmail: string | null
+  opts: {
+    paymentLinkId: string;
+    whopOrderId: string;
+    buyerEmail: string | null;
+    amountCents?: number;
+    whopProductId?: string | null;
+  }
 ): Promise<{ access_token: string }> {
+  const { paymentLinkId, whopOrderId, buyerEmail, amountCents = 0, whopProductId } = opts;
+
+  const { data: existingAccess } = await supabase
+    .from("payment_link_accesses")
+    .select("access_token")
+    .eq("payment_link_id", paymentLinkId)
+    .eq("transaction_ref", whopOrderId)
+    .maybeSingle();
+
+  if (existingAccess?.access_token) {
+    return { access_token: existingAccess.access_token };
+  }
+
+  // Resolve creator_id from payment_links
+  const { data: pl, error: plError } = await supabase
+    .from("payment_links")
+    .select("creator_id, purchase_count, whop_product_id")
+    .eq("id", paymentLinkId)
+    .maybeSingle();
+
+  if (plError) {
+    console.error(`Failed to fetch payment link ${paymentLinkId}:`, plError);
+    throw new Error(`Payment link lookup failed: ${plError.message}`);
+  }
+
+  if (!pl) {
+    console.error(`Payment link not found: ${paymentLinkId}`);
+    throw new Error(`Payment link not found: ${paymentLinkId}`);
+  }
+
+  const creatorId = pl.creator_id ?? null;
+  const resolvedProductId = whopProductId ?? pl.whop_product_id ?? null;
+
   const { data: access, error } = await supabase
     .from("payment_link_accesses")
     .insert({
       payment_link_id: paymentLinkId,
-      transaction_ref: transactionRef,
+      transaction_ref: whopOrderId,
       buyer_email:     buyerEmail,
     })
     .select("access_token")
@@ -251,23 +329,82 @@ async function grantPaymentLinkAccess(
     throw new Error(`grantPaymentLinkAccess failed: ${error?.message ?? "unknown"}`);
   }
 
-  // Bump purchase_count (fire-and-forget; non-critical)
-  supabase
-    .from("payment_links")
-    .select("purchase_count")
-    .eq("id", paymentLinkId)
-    .single()
-    .then(({ data: pl }) => {
-      if (pl) {
-        supabase
-          .from("payment_links")
-          .update({ purchase_count: (pl.purchase_count ?? 0) + 1 })
-          .eq("id", paymentLinkId)
-          .then(() => {});
-      }
-    });
+  // ── Record in purchases table ────────────────────────────────────────────
+  let purchaseId: string | null = null;
+  if (creatorId) {
+    const { data: purchase, error: purchaseError } = await supabase
+      .from("purchases")
+      .insert({
+        buyer_email:      buyerEmail,
+        creator_id:       creatorId,
+        payment_link_id:  paymentLinkId,
+        whop_order_id:    whopOrderId,
+        whop_product_id:  resolvedProductId,
+        status:           "paid",
+        amount:           amountCents,
+        currency:         "usd",
+      })
+      .select("id")
+      .single();
 
-  return { access_token: access.access_token };
+    if (purchaseError) {
+      console.error("Failed to insert purchase:", { paymentLinkId, whopOrderId, error: purchaseError });
+      await supabase
+        .from("payment_link_accesses")
+        .delete()
+        .eq("payment_link_id", paymentLinkId)
+        .eq("transaction_ref", whopOrderId);
+      throw new Error(`Failed to record purchase: ${purchaseError.message}`);
+    }
+
+    purchaseId = purchase?.id ?? null;
+    if (!purchaseId) {
+      console.error("Purchase inserted but no ID returned");
+      throw new Error("Purchase record created without ID");
+    }
+  }
+
+  // Atomic purchase_count increment
+  const rpcResult = await supabase
+    .rpc('increment_payment_link_purchase_count', { payment_link_id: paymentLinkId });
+
+  if (rpcResult.error) {
+    console.error(`Failed to increment purchase_count for ${paymentLinkId}:`, rpcResult.error);
+  }
+
+  // ── Record in access_entitlements ────────────────────────────────────────
+  if (creatorId && purchaseId) {
+    const { error: entitlementError } = await supabase
+      .from("access_entitlements")
+      .insert({
+        purchase_id:      purchaseId,
+        creator_id:       creatorId,
+        unlock_type:      "payment_link",
+        payment_link_id:  paymentLinkId,
+        buyer_email:      buyerEmail,
+        active:           true,
+      });
+
+    if (entitlementError) {
+      console.error("Failed to create access entitlement:", { purchaseId, paymentLinkId, error: entitlementError });
+      // Log but don't fail; user can still access via payment_link_accesses
+    }
+  }
+
+  // ── Generate secure 64-char hex access token ─────────────────────────────
+  let secureToken: string = access.access_token; // fallback to UUID from payment_link_accesses
+  if (purchaseId) {
+    try {
+      secureToken = await generateAccessToken(purchaseId);
+    } catch (err) {
+      console.error("[whop-webhook] generateAccessToken failed — falling back to payment_link_accesses token:", {
+        purchaseId,
+        err: err instanceof Error ? err.message : err,
+      });
+    }
+  }
+
+  return { access_token: secureToken };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,6 +430,33 @@ async function handlePaymentRefunded(
       .from("fan_codes_v2")
       .update({ is_paid: false })
       .eq("id", tx.fan_code_id);
+  }
+
+  const { data: refundedPurchases } = await supabase
+    .from("purchases")
+    .update({ status: "refunded", updated_at: new Date().toISOString() })
+    .eq("whop_order_id", whopPaymentId)
+    .select("id, payment_link_id");
+
+  const purchaseIds = (refundedPurchases || []).map((p) => p.id);
+  if (purchaseIds.length > 0) {
+    await supabase
+      .from("access_entitlements")
+      .update({ active: false })
+      .in("purchase_id", purchaseIds);
+  }
+
+  await supabase
+    .from("payment_link_accesses")
+    .delete()
+    .eq("transaction_ref", whopPaymentId);
+
+  // Expire access_tokens for refunded purchases so token-based unlock is revoked
+  if (purchaseIds.length > 0) {
+    await supabase
+      .from("access_tokens")
+      .update({ expires_at: new Date().toISOString() })
+      .in("purchase_id", purchaseIds);
   }
 
   console.info(`[whop-webhook] payment.refunded — whop_payment_id=${whopPaymentId}`);
@@ -321,4 +485,77 @@ async function handlePayoutCompleted(
 
   console.info(`[whop-webhook] payout.completed — external_tx_id=${externalTxId}`);
   return NextResponse.json({ received: true, action: "payout_marked_complete" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// membership.went_valid — grant unlock_content access after Whop purchase
+//
+// Expected Whop payload shape:
+//   event: "membership.went_valid"
+//   data: {
+//     id: "<membership_id>",
+//     user: { id: "<whop_user_id>" },
+//     product_id: "<whop_product_id>",
+//     metadata: {
+//       offer_id:    "<uuid>",   ← set via provisionWhopCheckout
+//       creator_id:  "<uuid>",   ← set via provisionWhopCheckout
+//       user_id:     "<uuid>",   ← CIPHER auth.users UUID (optional — falls back to lookup)
+//     }
+//   }
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function handleMembershipValid(data: Record<string, unknown>) {
+  const metadata  = (data.metadata as Record<string, unknown>) ?? {};
+  const offerId   = typeof metadata.offer_id   === "string" ? metadata.offer_id.trim()   : "";
+  const creatorId = typeof metadata.creator_id  === "string" ? metadata.creator_id.trim() : "";
+  let   userId    = typeof metadata.user_id     === "string" ? metadata.user_id.trim()    : "";
+
+  // ── Validate required IDs ─────────────────────────────────────────────────
+  if (!offerId || !UUID_RE.test(offerId)) {
+    console.warn("[whop-webhook] membership.went_valid — missing or invalid offer_id in metadata");
+    return NextResponse.json({ received: true, action: "offer_unlock_skipped", reason: "no_offer_id" });
+  }
+
+  if (!creatorId || !UUID_RE.test(creatorId)) {
+    console.warn("[whop-webhook] membership.went_valid — missing or invalid creator_id in metadata");
+    return NextResponse.json({ received: true, action: "offer_unlock_skipped", reason: "no_creator_id" });
+  }
+
+  // ── Resolve user_id if not in metadata ───────────────────────────────────
+  // Falls back to looking up by whop user ID in creator_profiles if available.
+  if (!userId || !UUID_RE.test(userId)) {
+    const whopUserId = typeof (data.user as Record<string, unknown>)?.id === "string"
+      ? String((data.user as Record<string, unknown>).id)
+      : "";
+
+    if (whopUserId) {
+      const supabase = getSupabase();
+      const { data: profile } = await supabase
+        .from("creator_profiles")
+        .select("user_id")
+        .eq("whop_user_id", whopUserId)
+        .maybeSingle();
+
+      userId = profile?.user_id ?? "";
+    }
+
+    if (!userId || !UUID_RE.test(userId)) {
+      console.warn("[whop-webhook] membership.went_valid — cannot resolve CIPHER user_id for whop user", data.user);
+      return NextResponse.json({ received: true, action: "offer_unlock_skipped", reason: "no_user_id" });
+    }
+  }
+
+  // ── Insert unlock row ─────────────────────────────────────────────────────
+  const result = await createUnlock({ offerId, userId });
+
+  if (!result.ok) {
+    console.error("[whop-webhook] createUnlock failed:", result.error);
+    // Return 500 so Whop retries delivery
+    return NextResponse.json({ error: "Failed to create unlock" }, { status: 500 });
+  }
+
+  console.info(`[whop-webhook] membership.went_valid — offer=${offerId} user=${userId} unlocked`);
+  return NextResponse.json({ received: true, action: "offer_unlocked", offer_id: offerId });
 }
