@@ -94,6 +94,13 @@ export type NotificationItem = {
   unread: boolean;
 };
 
+export type FanCodeRequest = {
+  id: string;
+  email: string;
+  message: string | null;
+  created_at: string;
+};
+
 export type SocialPlatform = "twitter" | "tiktok" | "instagram" | "youtube" | "telegram";
 
 export type SocialConnection = {
@@ -147,6 +154,7 @@ export type DashboardData = {
   creatorProfile: CreatorProfileSummary;
   socialConnections: SocialConnection[];
   socialReach: SocialReach;
+  fanCodeRequests: FanCodeRequest[];
   oauthAvailable: {
     twitter: boolean;
     tiktok: boolean;
@@ -451,6 +459,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     creatorProfile,
     socialConnections,
     socialReach,
+    fanCodeRequests,
     oauthAvailable,
   } = data;
 
@@ -1485,6 +1494,75 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* ── Fan Code Access Requests ── */}
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>ACCESS REQUESTS</div>
+                    {fanCodeRequests.length > 0 && (
+                      <div style={{ ...mono, fontSize: "9px", color: "var(--gold)", padding: "2px 8px", background: "rgba(200,169,110,0.1)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: "99px" }}>
+                        {fanCodeRequests.length} NEW
+                      </div>
+                    )}
+                  </div>
+                  {fanCodeRequests.length === 0 ? (
+                    <div style={{ padding: "18px 16px", fontSize: "13px", color: "var(--muted)" }}>
+                      No access requests yet. Share your profile at{" "}
+                      <span style={{ ...mono, color: "var(--gold-dim)" }}>
+                        /creator/{creatorProfile.handle || "yourhandle"}
+                      </span>{" "}
+                      so fans can request a code.
+                    </div>
+                  ) : (
+                    fanCodeRequests.map((req, idx) => (
+                      <div
+                        key={req.id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto",
+                          gap: "12px",
+                          alignItems: "start",
+                          padding: "12px 16px",
+                          borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined,
+                        }}
+                      >
+                        <div>
+                          <div style={{ ...mono, fontSize: "11px", color: "var(--white)", letterSpacing: "0.06em", marginBottom: "3px" }}>
+                            {req.email}
+                          </div>
+                          {req.message && (
+                            <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5, marginBottom: "3px" }}>
+                              &ldquo;{req.message}&rdquo;
+                            </div>
+                          )}
+                          <div style={{ ...mono, fontSize: "9px", color: "var(--dim)" }}>
+                            {formatDate(req.created_at)}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                          <a
+                            href={`mailto:${req.email}?subject=Your CIPHER Fan Code&body=Hi! Here is your exclusive fan code for my CIPHER page: [YOUR_CODE]`}
+                            style={{
+                              display: "inline-block",
+                              padding: "7px 12px",
+                              background: "var(--gold)",
+                              border: "none",
+                              borderRadius: "6px",
+                              color: "#120c00",
+                              ...mono,
+                              fontSize: "9px",
+                              letterSpacing: "0.12em",
+                              textDecoration: "none",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            SEND CODE
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

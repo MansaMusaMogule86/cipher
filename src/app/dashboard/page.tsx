@@ -1,5 +1,6 @@
 ﻿import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import DashboardClient, {
   type DashboardData,
 } from "./DashboardClient";
@@ -286,6 +287,22 @@ export default async function DashboardPage() {
     leaderboardTotal: 126,
   };
 
+  // Fan code access requests (from public creator profile page)
+  const serviceClient = createServiceClient();
+  const { data: fcRequestsRaw } = await serviceClient
+    .from("fan_code_requests")
+    .select("id, email, message, created_at")
+    .eq("creator_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const fanCodeRequests: DashboardData["fanCodeRequests"] = (fcRequestsRaw ?? []).map(r => ({
+    id: String(r.id),
+    email: String(r.email),
+    message: r.message ? String(r.message) : null,
+    created_at: String(r.created_at ?? ""),
+  }));
+
   const dashboardData: DashboardData = {
     wallet,
     fanCodes,
@@ -314,6 +331,7 @@ export default async function DashboardPage() {
     },
     socialConnections,
     socialReach,
+    fanCodeRequests,
     oauthAvailable,
   };
 
