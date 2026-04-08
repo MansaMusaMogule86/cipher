@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseClient } from "@/lib/supabase";
+import { createServiceClient } from "@/lib/supabase/service";
 
 function createResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     const payout = typeof raw.payout === "string" ? raw.payout : "";
     const audience = typeof raw.audience === "string" ? raw.audience : "";
     const bio = typeof raw.bio === "string" ? raw.bio : null;
+    const referrerSlug = typeof raw.referrer_slug === "string" ? raw.referrer_slug.trim().toLowerCase() : null;
 
     const { error: dbError } = await supabase.from("creator_applications").insert({
       name: name.trim(),
@@ -84,6 +86,31 @@ export async function POST(req: NextRequest) {
       }
       console.error("DB error:", dbError.message, dbError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+
+    // Record referral relationship if someone referred this applicant
+    if (referrerSlug) {
+      try {
+        const serviceClient = createServiceClient();
+        const { data: referrer } = await serviceClient
+          .from("creator_applications")
+          .select("user_id")
+          .or(`referral_slug.ilike.${referrerSlug},handle.ilike.${referrerSlug}`)
+          .maybeSingle();
+
+        if (referrer?.user_id) {
+          await serviceClient.from("referrals").insert({
+            referrer_id: referrer.user_id,
+            referred_email: (email as string).toLowerCase().trim(),
+            referral_slug: referrerSlug,
+            status: "pending",
+            reward_amount: 0,
+          });
+        }
+      } catch (refErr) {
+        // Referral tracking failure should never block the application
+        console.error("Referral record failed:", refErr);
+      }
     }
 
     try {

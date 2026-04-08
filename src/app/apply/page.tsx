@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 /* ─────────────────────────────────────────
    TYPES
@@ -252,11 +252,19 @@ function RadioCards({ options, selected, onChange }: { options: string[]; select
 ───────────────────────────────────────── */
 export default function Apply() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep]         = useState(0);
   const [loading, setLoading]   = useState(false);
   const [errors, setErrors]     = useState<Record<string, string>>({});
   const [serverErr, setServerErr] = useState("");
+  const [referrerSlug, setReferrerSlug] = useState("");
   const contentRef              = useRef<HTMLDivElement>(null);
+
+  // Capture referral param from URL on mount
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) setReferrerSlug(ref);
+  }, [searchParams]);
 
   const [form, setForm] = useState<FormData>({
     name: "", handle: "", category: "",
@@ -306,7 +314,7 @@ export default function Apply() {
       const res = await fetch("/api/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, referrer_slug: referrerSlug || undefined }),
       });
       let data: Record<string, unknown> = {};
       try { data = await res.json(); } catch { /* non-JSON response */ }
@@ -395,6 +403,16 @@ export default function Apply() {
         <div ref={contentRef} className="apply-right" style={{ padding: "56px 64px", overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
           {step < 4 && <Steps current={step} total={4} />}
+
+          {/* ── REFERRAL BANNER ── */}
+          {referrerSlug && step < 4 && (
+            <div style={{ marginBottom: "28px", padding: "10px 16px", background: "rgba(200,169,110,0.07)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: "4px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--gold)", letterSpacing: "0.08em" }}>
+                Referred by <strong>@{referrerSlug}</strong>
+              </span>
+            </div>
+          )}
 
           {/* ── STEP 0 — identity ── */}
           {step === 0 && (

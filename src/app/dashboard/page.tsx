@@ -41,10 +41,10 @@ export default async function DashboardPage() {
     referral_income: safeNum(walletRow?.referral_income),
   };
 
-  // Fetch creator profile for phantom mode + vault pin
+  // Fetch creator profile for phantom mode + vault pin + referral slug
   const { data: creatorProfile, error: creatorProfileErr } = await supabase
     .from("creator_applications")
-    .select("phantom_mode, vault_pin_hash, display_name, handle, bio, category, created_at")
+    .select("phantom_mode, vault_pin_hash, display_name, handle, bio, category, created_at, referral_slug")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -287,21 +287,56 @@ export default async function DashboardPage() {
     leaderboardTotal: 126,
   };
 
-  // Fan code access requests (from public creator profile page)
+  // Fan code access requests (from public creator profile page) + referrals
   const serviceClient = createServiceClient();
-  const { data: fcRequestsRaw } = await serviceClient
-    .from("fan_code_requests")
-    .select("id, email, message, created_at")
-    .eq("creator_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [fcRequestsResult, referralsResult] = await Promise.all([
+    serviceClient
+      .from("fan_code_requests")
+      .select("id, email, message, created_at")
+      .eq("creator_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    serviceClient
+      .from("referrals")
+      .select("id, referred_email, status, reward_amount, created_at, activated_at")
+      .eq("referrer_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
 
-  const fanCodeRequests: DashboardData["fanCodeRequests"] = (fcRequestsRaw ?? []).map(r => ({
+  const fanCodeRequests: DashboardData["fanCodeRequests"] = (fcRequestsResult.data ?? []).map(r => ({
     id: String(r.id),
     email: String(r.email),
     message: r.message ? String(r.message) : null,
     created_at: String(r.created_at ?? ""),
   }));
+
+  const referrals: DashboardData["referrals"] = (referralsResult.data ?? []).map(r => ({
+    id: String(r.id),
+    referred_email: String(r.referred_email),
+    status: String(r.status ?? "pending"),
+    reward_amount: safeNum(r.reward_amount),
+    created_at: String(r.created_at ?? ""),
+    activated_at: r.activated_at ? String(r.activated_at) : null,
+  }));
+
+  // Real referral stats from actual data
+  const realReferralStats: DashboardData["referralStats"] = {
+    totalCreators: referrals.length,
+    activeCreators: referrals.filter(r => r.status !== "pending").length,
+    lifetimeEarnings: referrals.reduce((s, r) => s + r.reward_amount, 0),
+    monthEarnings: referrals
+      .filter(r => r.created_at >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      .reduce((s, r) => s + r.reward_amount, 0),
+    leaderboardPosition: referralStats.leaderboardPosition, // keep approximate for now
+    leaderboardTotal: referralStats.leaderboardTotal,
+  };
+
+  const referralSlug = creatorProfile?.referral_slug
+    ? String(creatorProfile.referral_slug)
+    : creatorProfile?.handle
+      ? String(creatorProfile.handle)
+      : (user.email ?? "").split("@")[0] || user.id.slice(0, 8);
 
   const dashboardData: DashboardData = {
     wallet,
@@ -314,7 +349,9 @@ export default async function DashboardPage() {
     withdrawals,
     notifications,
     analytics,
-    referralStats,
+    referralStats: realReferralStats,
+    referrals,
+    referralSlug,
     topContentType,
     chartTrend,
     missingTables: Array.from(missingTables),

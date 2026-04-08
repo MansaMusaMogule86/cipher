@@ -125,6 +125,15 @@ export type AnalyticsData = {
   topCountries: Array<{ country: string; fans: number }>;
 };
 
+export type ReferralRow = {
+  id: string;
+  referred_email: string;
+  status: string; // pending | active | rewarded
+  reward_amount: number;
+  created_at: string;
+  activated_at: string | null;
+};
+
 export type DashboardData = {
   wallet: WalletData;
   fanCodes: FanCodeRow[];
@@ -144,6 +153,8 @@ export type DashboardData = {
     leaderboardPosition: number;
     leaderboardTotal: number;
   };
+  referrals: ReferralRow[];
+  referralSlug: string; // customizable, defaults to handle
   topContentType: string;
   chartTrend: "up" | "down";
   missingTables: string[];
@@ -449,6 +460,8 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
     notifications,
     analytics,
     referralStats,
+    referrals: initialReferrals,
+    referralSlug: initialReferralSlug,
     topContentType,
     chartTrend,
     missingTables,
@@ -529,7 +542,17 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
   const [shareText, setShareText] = useState("New exclusive content just dropped 🔒 cipher.co/@creator");
 
   const handle = userEmail.split("@")[0] || userId.slice(0, 8);
-  const referralLink = `cipher.so/ref/${handle}`;
+
+  // Referral state
+  const [referralSlug, setReferralSlug] = useState(initialReferralSlug || handle);
+  const [referrals, setReferrals] = useState<ReferralRow[]>(initialReferrals);
+  const [refSlugInput, setRefSlugInput] = useState(initialReferralSlug || handle);
+  const [refSlugSaving, setRefSlugSaving] = useState(false);
+  const [refSlugMsg, setRefSlugMsg] = useState("");
+  const [refStatsCopied, setRefStatsCopied] = useState<string | null>(null); // which format was copied
+  const [refStatsLoading, setRefStatsLoading] = useState(false);
+
+  const referralLink = `cipher.so/ref/${referralSlug}`;
   const maxChart = Math.max(...chartData.map(d => d.amount), 1);
   const forecast = useMemo(() => {
     const totalWeek = chartData.reduce((sum, d) => sum + d.amount, 0);
@@ -747,6 +770,51 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         setCopied(false);
         setCopyErr("Could not copy link. Please copy manually.");
       });
+  };
+
+  const copyRefFormat = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setRefStatsCopied(key);
+      setTimeout(() => setRefStatsCopied(null), 2000);
+    }).catch(() => {});
+  };
+
+  const saveReferralSlug = async () => {
+    const slug = refSlugInput.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!slug || slug === referralSlug) return;
+    setRefSlugSaving(true);
+    setRefSlugMsg("");
+    try {
+      const res = await fetch("/api/referral/customize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const json = await res.json() as { ok?: boolean; slug?: string; error?: string };
+      if (!res.ok || !json.ok) {
+        setRefSlugMsg(json.error ?? "Could not update slug.");
+        return;
+      }
+      setReferralSlug(json.slug ?? slug);
+      setRefSlugInput(json.slug ?? slug);
+      setRefSlugMsg("Link updated!");
+    } catch {
+      setRefSlugMsg("Network error. Try again.");
+    } finally {
+      setRefSlugSaving(false);
+    }
+  };
+
+  const refreshReferralStats = async () => {
+    setRefStatsLoading(true);
+    try {
+      const res = await fetch("/api/referral/stats");
+      const json = await res.json() as { ok?: boolean; referrals?: ReferralRow[]; stats?: { totalReferred: number; activeCount: number; lifetimeEarnings: number; monthEarnings: number } };
+      if (res.ok && json.ok && json.referrals) {
+        setReferrals(json.referrals);
+      }
+    } catch { /* ignore */ }
+    finally { setRefStatsLoading(false); }
   };
 
   const copyAi = () => {
@@ -1709,47 +1777,141 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "referrals" && (
               <div style={{ display: "grid", gap: "12px" }}>
-                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
-                  <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>REFERRAL COMMAND CENTER</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "12px", marginTop: "10px" }}>
-                    <div>
-                      <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "7px", padding: "10px", ...mono, color: "var(--gold)", fontSize: "12px", wordBreak: "break-all" }}>{referralLink}</div>
-                      <button type="button" onClick={copyLink} style={{ marginTop: "8px", border: "none", borderRadius: "6px", padding: "8px 12px", background: copied ? "rgba(200,169,110,0.2)" : "var(--gold)", color: copied ? "var(--gold)" : "#120c00", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer" }}>
-                        {copied ? "COPIED" : "COPY LINK"}
-                      </button>
-                      {copyErr && <div style={{ marginTop: "6px", color: "#ff6a6a", fontSize: "12px" }}>{copyErr}</div>}
-                    </div>
 
-                    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "7px", padding: "10px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.02)" }}>
-                      <svg viewBox="0 0 120 120" width="110" height="110" aria-label="Referral QR">
-                        <rect x="0" y="0" width="120" height="120" fill="#0f0f19" />
-                        {[8, 20, 32, 60, 72, 84, 96].map((x, idx) => (
-                          <rect key={`x${idx}`} x={x} y={x % 40 === 0 ? 20 : 44} width="8" height="8" fill="#c8a96e" />
-                        ))}
-                        <rect x="8" y="8" width="26" height="26" stroke="#c8a96e" fill="none" />
-                        <rect x="86" y="8" width="26" height="26" stroke="#c8a96e" fill="none" />
-                        <rect x="8" y="86" width="26" height="26" stroke="#c8a96e" fill="none" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-
+                {/* ── Hero stats row ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: "10px" }}>
                   {[
-                    { label: "Total Creators", value: String(animatedRefStats.totalCreators) },
-                    { label: "Active Creators", value: String(animatedRefStats.activeCreators) },
-                    { label: "Lifetime Earnings", value: money.format(animatedRefStats.lifetimeEarnings) },
-                    { label: "This Month", value: money.format(animatedRefStats.monthEarnings) },
+                    { label: "REFERRED", value: String(referrals.length) },
+                    { label: "ACTIVE", value: String(referrals.filter(r => r.status !== "pending").length) },
+                    { label: "LIFETIME", value: money.format(referrals.reduce((s, r) => s + r.reward_amount, 0)) },
+                    { label: "THIS MONTH", value: money.format(referrals.filter(r => r.created_at >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).reduce((s, r) => s + r.reward_amount, 0)) },
                   ].map(stat => (
-                    <div key={stat.label} style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "14px" }}>
-                      <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em", marginBottom: "8px" }}>{stat.label}</div>
-                      <div style={{ ...disp, fontSize: "30px", color: "var(--gold)" }}>{stat.value}</div>
+                    <div key={stat.label} style={{ background: "#111120", border: "1px solid rgba(200,169,110,0.14)", borderRadius: "8px", padding: "16px" }}>
+                      <div style={{ ...mono, fontSize: "9px", color: "var(--gold-dim)", letterSpacing: "0.18em", marginBottom: "8px" }}>{stat.label}</div>
+                      <div style={{ ...disp, fontSize: "32px", color: "var(--gold)", lineHeight: 1 }}>{stat.value}</div>
                     </div>
                   ))}
                 </div>
 
-                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "14px", ...mono, color: "var(--white)", letterSpacing: "0.08em", fontSize: "12px" }}>
-                  You are #{referralStats.leaderboardPosition} of all referrers ({referralStats.leaderboardTotal} total)
+                {/* ── Customize referral link ── */}
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                    <div>
+                      <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>YOUR REFERRAL LINK</div>
+                      <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "2px" }}>Customize your slug — share once, earn forever.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={refreshReferralStats}
+                      disabled={refStatsLoading}
+                      style={{ ...mono, fontSize: "10px", letterSpacing: "0.1em", color: "var(--dim)", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", padding: "6px 10px", cursor: "pointer" }}
+                    >
+                      {refStatsLoading ? "..." : "↺ REFRESH"}
+                    </button>
+                  </div>
+
+                  {/* Slug editor */}
+                  <div style={{ display: "flex", gap: "8px", alignItems: "stretch", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", flex: 1, alignItems: "center", background: "#0d0d18", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", overflow: "hidden", minWidth: "220px" }}>
+                      <span style={{ ...mono, fontSize: "12px", color: "var(--dim)", padding: "0 10px", whiteSpace: "nowrap", borderRight: "1px solid rgba(255,255,255,0.07)", height: "100%", display: "flex", alignItems: "center" }}>cipher.so/ref/</span>
+                      <input
+                        value={refSlugInput}
+                        onChange={e => setRefSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                        onKeyDown={e => e.key === "Enter" && void saveReferralSlug()}
+                        placeholder={handle}
+                        style={{ flex: 1, background: "transparent", border: "none", color: "var(--gold)", ...mono, fontSize: "13px", padding: "10px 12px", outline: "none" }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void saveReferralSlug()}
+                      disabled={refSlugSaving || refSlugInput === referralSlug}
+                      style={{ ...mono, fontSize: "11px", letterSpacing: "0.1em", background: "var(--gold)", color: "#0a0800", border: "none", borderRadius: "6px", padding: "10px 18px", cursor: "pointer", opacity: (refSlugSaving || refSlugInput === referralSlug) ? 0.5 : 1 }}
+                    >
+                      {refSlugSaving ? "SAVING..." : "SAVE"}
+                    </button>
+                  </div>
+                  {refSlugMsg && (
+                    <div style={{ marginTop: "6px", ...mono, fontSize: "11px", color: refSlugMsg.includes("!") ? "#39c56f" : "#ff6a6a" }}>{refSlugMsg}</div>
+                  )}
+
+                  {/* Full URL display + copy formats */}
+                  <div style={{ marginTop: "14px", display: "grid", gap: "8px" }}>
+                    {[
+                      { key: "link", label: "DIRECT LINK", value: `https://${referralLink}` },
+                      { key: "twitter", label: "TWITTER CAPTION", value: `Join me on CIPHER — the creator platform built different. Earn 88%+, zero fan accounts needed. Apply here: https://${referralLink}` },
+                      { key: "short", label: "SHORT FORMAT", value: referralLink },
+                    ].map(fmt => (
+                      <div key={fmt.key} style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "6px", padding: "8px 12px" }}>
+                        <div style={{ flex: 1, overflow: "hidden" }}>
+                          <div style={{ ...mono, fontSize: "9px", color: "var(--dim)", letterSpacing: "0.1em", marginBottom: "2px" }}>{fmt.label}</div>
+                          <div style={{ ...mono, fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fmt.value}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyRefFormat(fmt.value, fmt.key)}
+                          style={{ ...mono, fontSize: "9px", letterSpacing: "0.1em", background: refStatsCopied === fmt.key ? "rgba(200,169,110,0.2)" : "var(--gold)", color: refStatsCopied === fmt.key ? "var(--gold)" : "#0a0800", border: "none", borderRadius: "4px", padding: "5px 10px", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }}
+                        >
+                          {refStatsCopied === fmt.key ? "✓" : "COPY"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Referral list ── */}
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", overflow: "hidden" }}>
+                  <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>REFERRED CREATORS</div>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--dim)" }}>{referrals.length} total</div>
+                  </div>
+                  {referrals.length === 0 ? (
+                    <div style={{ padding: "32px 16px", textAlign: "center" }}>
+                      <div style={{ ...disp, fontSize: "40px", color: "var(--gold)", marginBottom: "8px" }}>✦</div>
+                      <div style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "4px" }}>No referrals yet.</div>
+                      <div style={{ fontSize: "12px", color: "var(--dim)" }}>Share your link below and earn a lifetime cut from every creator you bring in.</div>
+                    </div>
+                  ) : (
+                    referrals.map(r => {
+                      const statusColor = r.status === "rewarded" ? "#39c56f" : r.status === "active" ? "#c8a96e" : "var(--dim)";
+                      const maskedEmail = r.referred_email.replace(/(.{2}).+(@.+)/, "$1***$2");
+                      return (
+                        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: "12px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.04)", alignItems: "center" }}>
+                          <div style={{ ...mono, fontSize: "12px", color: "var(--muted)" }}>{maskedEmail}</div>
+                          <div style={{ ...mono, fontSize: "10px", color: statusColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>{r.status}</div>
+                          <div style={{ ...mono, fontSize: "11px", color: "var(--dim)" }}>{formatDate(r.created_at)}</div>
+                          <div style={{ ...disp, fontSize: "18px", color: "var(--gold)" }}>{money.format(r.reward_amount)}</div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* ── How it works ── */}
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
+                  <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em", marginBottom: "12px" }}>HOW REFERRALS WORK</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px" }}>
+                    {[
+                      { step: "01", title: "Share your link", desc: "Send cipher.so/ref/yourslug to any creator you think should be on CIPHER." },
+                      { step: "02", title: "They apply & activate", desc: "When they apply through your link and activate their creator account, the referral is confirmed." },
+                      { step: "03", title: "Earn for life", desc: "You earn a % of the platform's cut from their revenue — forever, with no cap." },
+                    ].map(item => (
+                      <div key={item.step} style={{ padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div style={{ ...mono, fontSize: "22px", color: "rgba(200,169,110,0.25)", marginBottom: "8px" }}>{item.step}</div>
+                        <div style={{ fontSize: "13px", color: "var(--white)", marginBottom: "4px" }}>{item.title}</div>
+                        <div style={{ fontSize: "11px", color: "var(--dim)", lineHeight: 1.6 }}>{item.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Leaderboard position ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(200,169,110,0.06), rgba(200,169,110,0.02))", border: "1px solid rgba(200,169,110,0.18)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+                  <div>
+                    <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em", marginBottom: "4px" }}>LEADERBOARD</div>
+                    <div style={{ fontSize: "13px", color: "var(--muted)" }}>You are ranked <strong style={{ color: "var(--gold)" }}>#{referralStats.leaderboardPosition}</strong> of all referrers</div>
+                  </div>
+                  <div style={{ ...disp, fontSize: "42px", color: "var(--gold)", lineHeight: 1 }}>#{referralStats.leaderboardPosition}</div>
                 </div>
               </div>
             )}
