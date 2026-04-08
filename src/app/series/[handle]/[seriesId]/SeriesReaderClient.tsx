@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { PublicEpisode } from "@/lib/series";
 import { formatSeriesPrice } from "@/lib/series";
@@ -41,7 +41,7 @@ export default function SeriesReaderClient({ handle, seriesId }: Props) {
   const [email, setEmail]   = useState("");
   const [name, setName]     = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setState({ phase: "loading" });
     try {
       const url = token
@@ -91,9 +91,9 @@ export default function SeriesReaderClient({ handle, seriesId }: Props) {
     } catch {
       setState({ phase: "error", message: "Network error. Please try again." });
     }
-  }
+  }, [handle, seriesId, token]);
 
-  useEffect(() => { load(); }, [seriesId, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   async function buySeries() {
     setBuying(true);

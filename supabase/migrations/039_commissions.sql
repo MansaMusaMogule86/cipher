@@ -73,11 +73,21 @@ CREATE INDEX IF NOT EXISTS idx_commission_messages_commission ON commission_mess
 ALTER TABLE commissions          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commission_messages  ENABLE ROW LEVEL SECURITY;
 
--- Fans can insert commissions (public form)
+-- Fans can insert commissions (public form) — only benign fields permitted
 DROP POLICY IF EXISTS "public_insert_commissions" ON commissions;
 CREATE POLICY "public_insert_commissions"
   ON commissions FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (
+    -- Fans must not pre-set ownership; the server API (service role) supplies creator_id
+    creator_id       IS NULL
+    AND (status      IS NULL OR status      = 'pending')
+    AND agreed_cents IS NULL
+    AND whop_product_id  IS NULL
+    AND whop_checkout_id IS NULL
+    AND whop_payment_id  IS NULL
+    AND paid_at      IS NULL
+    AND delivered_at IS NULL
+  );
 
 -- Creator reads/manages their own
 DROP POLICY IF EXISTS "creator_manage_commissions" ON commissions;
@@ -94,6 +104,24 @@ CREATE POLICY "creator_manage_commission_messages"
       SELECT 1 FROM commissions c
       WHERE c.id = commission_messages.commission_id
         AND c.creator_id = auth.uid()
+    )
+  );
+
+-- Fans can view their own commission by access_token (token filtering enforced in app layer)
+DROP POLICY IF EXISTS "fan_view_commission" ON commissions;
+CREATE POLICY "fan_view_commission"
+  ON commissions FOR SELECT
+  USING (true);
+
+-- Fans can post messages on commissions they have access to (sender_role must be 'fan')
+DROP POLICY IF EXISTS "fan_insert_commission_messages" ON commission_messages;
+CREATE POLICY "fan_insert_commission_messages"
+  ON commission_messages FOR INSERT
+  WITH CHECK (
+    sender_role = 'fan'
+    AND EXISTS (
+      SELECT 1 FROM commissions c
+      WHERE c.id = commission_messages.commission_id
     )
   );
 

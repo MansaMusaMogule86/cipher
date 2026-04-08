@@ -66,7 +66,11 @@ export async function PATCH(req: Request, { params }: Params) {
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (typeof body.title === "string")       updates.title       = body.title.trim();
+  if (typeof body.title === "string") {
+    const trimmedTitle = body.title.trim();
+    if (trimmedTitle === "") return NextResponse.json({ error: "title cannot be empty" }, { status: 400 });
+    updates.title = trimmedTitle;
+  }
   if (typeof body.description === "string") updates.description = body.description.trim() || null;
   if (typeof body.cover_url === "string")   updates.cover_url   = body.cover_url.trim()   || null;
   if (typeof body.status === "string" && ["draft","published","archived"].includes(body.status)) {
@@ -97,6 +101,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     .from("series").select("id").eq("id", id).eq("creator_id", user.id).maybeSingle();
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.from("series").delete().eq("id", id);
+  const { error: deleteErr } = await db
+    .from("series").delete().eq("id", id).eq("creator_id", user.id);
+  if (deleteErr) {
+    console.error("[series/delete] delete failed:", deleteErr);
+    return NextResponse.json({ error: "Failed to delete series" }, { status: 500 });
+  }
   return NextResponse.json({ deleted: true });
 }

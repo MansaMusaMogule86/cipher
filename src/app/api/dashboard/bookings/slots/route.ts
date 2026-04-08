@@ -51,9 +51,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Validate date is not in the past
-  const today = new Date().toISOString().split("T")[0];
-  if (slot_date < today) {
+  // Validate date is not in the past — both sides normalized to UTC calendar dates
+  const todayUTC = new Date().toISOString().split("T")[0];
+  const slotDateUTC = new Date(slot_date + "T00:00:00Z").toISOString().split("T")[0];
+  if (slotDateUTC < todayUTC) {
     return NextResponse.json({ error: "Slot date cannot be in the past" }, { status: 400 });
   }
 

@@ -139,8 +139,18 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
-  if (bookingError || !booking) {
+  if (bookingError) {
+    // 23505 = unique_violation — another request booked the same slot concurrently
+    if (bookingError.code === "23505") {
+      return NextResponse.json(
+        { error: "This slot is no longer available. Please choose another time." },
+        { status: 409 }
+      );
+    }
     console.error("bookings insert error:", bookingError);
+    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
+  }
+  if (!booking) {
     return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
   }
 

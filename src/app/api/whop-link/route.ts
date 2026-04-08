@@ -41,7 +41,11 @@ export async function POST(req: Request) {
     .eq("id", contentId)
     .maybeSingle();
 
-  if (contentErr || !content) {
+  if (contentErr) {
+    console.error("[whop-link] DB error fetching content:", contentErr);
+    return NextResponse.json({ error: "Failed to fetch content", details: contentErr.message }, { status: 500 });
+  }
+  if (!content) {
     return NextResponse.json({ error: "Content not found" }, { status: 404 });
   }
 
