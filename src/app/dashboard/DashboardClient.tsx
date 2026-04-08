@@ -483,6 +483,11 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
   const [contentSaving, setContentSaving] = useState(false);
   const [contentMsg, setContentMsg] = useState("");
 
+  const [genCodeLoading, setGenCodeLoading] = useState(false);
+  const [genCodeResult, setGenCodeResult] = useState<{ code: string } | null>(null);
+  const [genCodeMsg, setGenCodeMsg] = useState("");
+  const [genCodeCopied, setGenCodeCopied] = useState(false);
+
   const [withdrawMethod, setWithdrawMethod] = useState("USDC");
   const [withdrawAmount, setWithdrawAmount] = useState("20");
   const [withdrawSaving, setWithdrawSaving] = useState(false);
@@ -864,6 +869,38 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
       setContentMsg("Could not save content item.");
     } finally {
       setContentSaving(false);
+    }
+  };
+
+  const generateFanCode = async () => {
+    setGenCodeLoading(true);
+    setGenCodeMsg("");
+    setGenCodeResult(null);
+    setGenCodeCopied(false);
+    try {
+      const res = await fetch("/api/fan-codes/generate", { method: "POST" });
+      const json = await res.json() as { ok?: boolean; fanCode?: { code: string; id: string; status: string; created_at: string; custom_name: string | null; creator_notes: string | null; tags: string[]; is_vip: boolean }; error?: string };
+      if (!res.ok || !json.ok || !json.fanCode) {
+        setGenCodeMsg(json.error ?? "Could not generate code.");
+        return;
+      }
+      setGenCodeResult({ code: json.fanCode.code });
+      setFansState(prev => [json.fanCode!, ...prev]);
+    } catch {
+      setGenCodeMsg("Network error — try again.");
+    } finally {
+      setGenCodeLoading(false);
+    }
+  };
+
+  const copyGenCode = async () => {
+    if (!genCodeResult) return;
+    try {
+      await navigator.clipboard.writeText(genCodeResult.code);
+      setGenCodeCopied(true);
+      setTimeout(() => setGenCodeCopied(false), 2000);
+    } catch {
+      setGenCodeMsg("Could not copy to clipboard.");
     }
   };
 
@@ -1408,6 +1445,45 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeSection === "fans" && (
               <div style={{ display: "grid", gap: "12px" }}>
+
+                {/* ── Generate Fan Code ── */}
+                <div style={{ background: "#111120", border: "1px solid rgba(255,255,255,0.055)", borderRadius: "8px", padding: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ ...mono, fontSize: "10px", color: "var(--gold-dim)", letterSpacing: "0.12em" }}>GENERATE FAN CODE</div>
+                      <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>Create a unique anonymous code to send to a fan.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={generateFanCode}
+                      disabled={genCodeLoading}
+                      style={{ border: "none", borderRadius: "8px", padding: "10px 18px", background: "var(--gold)", color: "#130d00", ...mono, fontSize: "11px", letterSpacing: "0.1em", cursor: "pointer", whiteSpace: "nowrap" }}
+                    >
+                      {genCodeLoading ? "GENERATING…" : "＋ GENERATE CODE"}
+                    </button>
+                  </div>
+
+                  {genCodeResult && (
+                    <div style={{ marginTop: "14px", padding: "14px 16px", background: "rgba(200,169,110,0.06)", border: "1px solid rgba(200,169,110,0.25)", borderRadius: "8px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.2em", color: "rgba(200,169,110,0.5)", marginBottom: "4px" }}>NEW FAN CODE</div>
+                        <div style={{ ...disp, fontSize: "30px", color: "var(--gold)", letterSpacing: "0.08em" }}>{genCodeResult.code}</div>
+                        <div style={{ ...mono, fontSize: "10px", color: "var(--muted)", marginTop: "4px" }}>
+                          Share: <span style={{ color: "var(--gold-dim)" }}>{`${typeof window !== "undefined" ? window.location.origin : ""}/fan/${genCodeResult.code}`}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={copyGenCode}
+                        style={{ border: "1px solid rgba(200,169,110,0.4)", borderRadius: "6px", padding: "8px 14px", background: genCodeCopied ? "rgba(200,169,110,0.15)" : "transparent", color: "var(--gold)", ...mono, fontSize: "10px", letterSpacing: "0.12em", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}
+                      >
+                        {genCodeCopied ? "COPIED ✓" : "COPY CODE"}
+                      </button>
+                    </div>
+                  )}
+                  {genCodeMsg && <div style={{ marginTop: "8px", fontSize: "12px", color: "#ff8a8a" }}>{genCodeMsg}</div>}
+                </div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: "10px" }}>
                   {[
                     { label: "Tracked fans", value: String(fanInsights.length), hint: `${crmCoverage} enriched with CRM notes` },

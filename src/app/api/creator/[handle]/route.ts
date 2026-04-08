@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createHash } from "crypto";
+import { Resend } from "resend";
 
 const HANDLE_PATTERN = /^[a-zA-Z0-9_.-]{1,32}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -141,7 +142,7 @@ export async function POST(
   // Look up creator_id by handle
   const { data: creator } = await supabase
     .from("creator_applications")
-    .select("user_id, phantom_mode")
+    .select("user_id, phantom_mode, handle")
     .ilike("handle", handle)
     .maybeSingle();
 
@@ -158,6 +159,34 @@ export async function POST(
   if (error) {
     console.error("creator-profile POST: insert error", error);
     return NextResponse.json({ error: "Could not save request" }, { status: 500 });
+  }
+
+  // Notify creator via email (fire-and-forget)
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    const { data: authUser } = await supabase.auth.admin.getUserById(creator.user_id);
+    const creatorEmail = authUser?.user?.email;
+    if (creatorEmail) {
+      const resend = new Resend(resendKey);
+      const creatorHandle = String(creator.handle ?? handle);
+      const msgHtml = message
+        ? `<p style="margin:0 0 8px"><em>"${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}"</em></p>`
+        : "";
+      void resend.emails.send({
+        from: "CIPHER <noreply@cipher.so>",
+        to: creatorEmail,
+        subject: `New fan access request — ${email}`,
+        html: `
+          <div style="font-family:monospace;background:#080810;color:#fff;padding:32px;max-width:480px">
+            <p style="font-size:22px;color:#c8a96e;margin:0 0 24px">✦ CIPHER</p>
+            <p style="margin:0 0 8px">A fan wants access to your exclusive content.</p>
+            <p style="margin:0 0 16px;color:#c8a96e;font-size:18px">${email}</p>
+            ${msgHtml}
+            <p style="margin:16px 0 4px;font-size:11px;color:#555">Go to your dashboard &rarr; Fans to generate and send them a code.</p>
+            <a href="https://cipher.so/creator/${creatorHandle}" style="color:#c8a96e;font-size:11px">cipher.so/creator/${creatorHandle}</a>
+          </div>`,
+      }).catch(err => console.error("creator-profile: resend error", err));
+    }
   }
 
   return NextResponse.json({ ok: true });
