@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Outfit, DM_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { Suspense } from "react";
 import { PostHogProvider } from "./providers/PostHogProvider";
 import ReferralCaptureClient from "./components/ReferralCaptureClient";
 import "./globals.css";
@@ -55,9 +56,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body style={{ background: "#020203", color: "rgba(255,255,255,0.92)" }}>
         <PostHogProvider>
+          <Suspense fallback={null}>
             <ReferralCaptureClient />
-            {children}
-          </PostHogProvider>
+          </Suspense>
+          {children}
+        </PostHogProvider>
         <Analytics />
       </body>
     </html>
