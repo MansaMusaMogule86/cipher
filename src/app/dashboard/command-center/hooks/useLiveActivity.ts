@@ -29,7 +29,7 @@ export function useLiveActivity(userId: string) {
   }, [loadInitial]);
 
   // Only subscribe to events — not all tables
-  useRealtime<FeedEvent>({
+  useRealtime<Record<string, unknown>>({
     channel: `live-activity-${userId}`,
     table: "events",
     event: "INSERT",

@@ -27,7 +27,7 @@ function FeedItem({ item, onClick }: { item: FeedEvent; onClick: (item: FeedEven
         display: "flex", alignItems: "center", gap: "12px",
         padding: "10px 16px",
         borderBottom: "1px solid rgba(255,255,255,0.04)",
-        background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+        background: "transparent",
         cursor: "pointer", transition: "background 0.12s",
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}

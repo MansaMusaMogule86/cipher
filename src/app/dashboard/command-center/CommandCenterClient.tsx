@@ -3,10 +3,11 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { useRevenueSummary } from "./hooks/useRevenueSummary";
-import { useRadar }          from "./hooks/useRadar";
-import { useLiveActivity }   from "./hooks/useLiveActivity";
-import { useActiveDrops }    from "./hooks/useActiveDrops";
+import { useRevenueSummary }   from "./hooks/useRevenueSummary";
+import { useRevenueTriggers } from "./hooks/useRevenueTriggers";
+import { useRadar }           from "./hooks/useRadar";
+import { useLiveActivity }    from "./hooks/useLiveActivity";
+import { useActiveDrops }     from "./hooks/useActiveDrops";
 
 import { TodayActionCard }      from "./components/TodayActionCard";
 import { RevenueTriggersPanel } from "./components/RevenueTriggersPanel";
@@ -26,6 +27,7 @@ export default function CommandCenterClient({ userId }: { userId: string }) {
   const [focusMode, setFocusMode] = useState(false);
 
   const { stats, atRisk, hotOnline, loading: statsLoading, refresh: refreshStats } = useRevenueSummary(userId);
+  const { triggers, refresh: refreshTriggers } = useRevenueTriggers(userId);
   const radar  = useRadar(userId);
   const { feed, loading: feedLoading }  = useLiveActivity(userId);
   const { drops, loading: dropsLoading, refresh: refreshDrops } = useActiveDrops(userId);
@@ -42,7 +44,8 @@ export default function CommandCenterClient({ userId }: { userId: string }) {
     setShowCreateDrop(false);
     refreshDrops();
     refreshStats();
-  }, [refreshDrops, refreshStats]);
+    refreshTriggers();
+  }, [refreshDrops, refreshStats, refreshTriggers]);
 
   if (focusMode) {
     return (
@@ -83,7 +86,7 @@ export default function CommandCenterClient({ userId }: { userId: string }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-        <RevenueTriggersPanel stats={stats} atRisk={atRisk} hotOnline={hotOnline} />
+        <RevenueTriggersPanel triggers={triggers} />
         <LiveActivityFeed feed={feed} loading={feedLoading} onItemClick={handleFeedItemClick} />
       </div>
 

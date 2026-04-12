@@ -35,7 +35,7 @@ export function useMessages(userId: string, fanId: string | null) {
   }, [messages]);
 
   // Realtime: only subscribe to messages table
-  useRealtime<Message>({
+  useRealtime<Record<string, unknown>>({
     channel: `msgs-${userId}-${fanId ?? "none"}`,
     table: "messages",
     event: "INSERT",
