@@ -66,6 +66,7 @@ export function useVaultDrops(userId: string) {
     setLoading(false);
   }, [userId, loadSocialProof]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadDrops(); }, [loadDrops]);
 
   useRealtime({

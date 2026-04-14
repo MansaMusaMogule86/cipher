@@ -129,6 +129,7 @@ export function CommandBar({ userId }: Props) {
   }, [open]);
 
   // Reset selection when query changes
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSelected(0); }, [query]);
 
   if (!open) {

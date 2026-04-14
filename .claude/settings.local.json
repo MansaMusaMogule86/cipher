@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's/CIPHER/MULUK/g' CLAUDE.md)",
+      "Bash(sed -i 's|cipher-theta-ruddy\\\\.vercel\\\\.app|muluk.vip|g' CLAUDE.md)"
+    ]
+  }
+}

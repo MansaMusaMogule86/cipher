@@ -97,6 +97,7 @@ export function useRevenueSummary(userId: string) {
     setLoading(false);
   }, [userId, supabase]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     refresh();
   }, [refresh]);

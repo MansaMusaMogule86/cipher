@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fmt, timeAgo, dateLabel } from "@/app/dashboard/_lib/helpers";
 import { GOLD, G, mono, body } from "@/app/dashboard/_lib/tokens";
@@ -171,12 +172,12 @@ export function FanContext({ conv, userId, onSendOffer }: Props) {
           style={{ padding: "9px 12px", background: GOLD, border: "none", borderRadius: "6px", color: "#0a0a0a", fontSize: "11px", fontWeight: 700, cursor: "pointer", ...mono, letterSpacing: "0.06em" }}>
           + SEND OFFER
         </button>
-        <a
+        <Link
           href="/dashboard/members"
           style={{ display: "block", padding: "9px 12px", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", color: "rgba(255,255,255,0.4)", fontSize: "11px", cursor: "pointer", ...body, textAlign: "center", textDecoration: "none" }}
         >
           View in Members
-        </a>
+        </Link>
       </div>
     </div>
   );

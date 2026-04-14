@@ -983,7 +983,7 @@ export default function OnboardingWizard({ creatorName, existingSocialConnection
   // Track onboarding start once on mount
   useEffect(() => {
     track.onboardingStarted();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   const updateData = useCallback(<K extends keyof OnboardingData>(key: K, value: OnboardingData[K]) => {

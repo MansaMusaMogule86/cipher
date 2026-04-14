@@ -23,6 +23,7 @@ export function useActiveDrops(userId: string) {
     setLoading(false);
   }, [userId, supabase]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     load();
   }, [load]);

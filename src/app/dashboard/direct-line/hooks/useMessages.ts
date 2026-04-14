@@ -24,6 +24,7 @@ export function useMessages(userId: string, fanId: string | null) {
     setLoading(false);
   }, [userId, supabase]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!fanId) { setMessages([]); return; }
     load(fanId);

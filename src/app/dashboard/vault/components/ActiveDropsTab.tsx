@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { useVaultDrops } from "../hooks/useVaultDrops";
 import { CreateDropModal } from "./CreateDropModal";
 import { countdown, fmt, timeAgo, dateLabel } from "@/app/dashboard/_lib/helpers";
@@ -36,14 +36,15 @@ const ActiveDropCard = memo(function ActiveDropCard({
   proof: DropSocialProof | undefined;
   onDeactivate: (id: string) => void;
 }) {
-  const [, tick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const slotsLeft = drop.max_slots - drop.slots_taken;
   const pct = drop.max_slots > 0 ? (drop.slots_taken / drop.max_slots) * 100 : 0;
-  const expiresIn = new Date(drop.expires_at).getTime() - Date.now();
+
+  const expiresIn = new Date(drop.expires_at).getTime() - now;
   const isUrgent = slotsLeft <= Math.ceil(drop.max_slots * 0.2) || expiresIn < 3_600_000;
 
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 60_000);
+    const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
 

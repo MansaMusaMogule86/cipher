@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { countdown, fmt } from "@/app/dashboard/_lib/helpers";
 import { GOLD, G, mono, body, card } from "@/app/dashboard/_lib/tokens";
 import type { Drop } from "@/app/dashboard/_lib/types";
 
 const DropCard = memo(function DropCard({ drop }: { drop: Drop }) {
-  const [, tick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const slotsLeft = drop.max_slots - drop.slots_taken;
   const pct = drop.max_slots > 0 ? (drop.slots_taken / drop.max_slots) * 100 : 0;
-  const expiresIn = new Date(drop.expires_at).getTime() - Date.now();
+
+  const expiresIn = new Date(drop.expires_at).getTime() - now;
   const isUrgent = slotsLeft <= Math.ceil(drop.max_slots * 0.2) || expiresIn < 3600000;
 
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 60_000);
+    const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
 

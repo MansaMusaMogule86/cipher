@@ -9,19 +9,21 @@ function fmt(cents: number) {
   return `$${dollars.toFixed(2)}`;
 }
 
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ background: "#111", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "20px 24px" }}>
+      <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.16em", color: "rgba(255,255,255,0.3)", marginBottom: "8px" }}>{label}</div>
+      <div style={{ ...mono, fontSize: "26px", color: GOLD, fontWeight: 300 }}>{value}</div>
+    </div>
+  );
+}
+
 export function PerformanceTab({ items }: { items: VaultItem[] }) {
   const totalUnlocks = items.reduce((s, i) => s + i.purchase_count, 0);
   const totalRevenue = items.reduce((s, i) => s + i.purchase_count * i.price_cents, 0);
   const activeItems = items.filter((i) => i.status === "active").length;
 
   const sorted = [...items].sort((a, b) => (b.purchase_count * b.price_cents) - (a.purchase_count * a.price_cents));
-
-  const StatCard = ({ label, value }: { label: string; value: string }) => (
-    <div style={{ background: "#111", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "20px 24px" }}>
-      <div style={{ ...mono, fontSize: "9px", letterSpacing: "0.16em", color: "rgba(255,255,255,0.3)", marginBottom: "8px" }}>{label}</div>
-      <div style={{ ...mono, fontSize: "26px", color: GOLD, fontWeight: 300 }}>{value}</div>
-    </div>
-  );
 
   return (
     <div style={{ padding: "24px 32px" }}>

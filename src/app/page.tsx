@@ -161,8 +161,12 @@ export default function Home() {
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener("click", e => {
         const href = (a as HTMLAnchorElement).getAttribute("href");
-        const target = href ? document.querySelector(href) : null;
-        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: "smooth" }); }
+        /* skip hash-only (#) or invalid selectors */
+        if (!href || href === "#") return;
+        try {
+          const target = document.querySelector(href);
+          if (target) { e.preventDefault(); target.scrollIntoView({ behavior: "smooth" }); }
+        } catch { /* invalid selector, ignore */ }
       });
     });
 

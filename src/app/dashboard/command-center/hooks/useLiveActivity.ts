@@ -24,6 +24,7 @@ export function useLiveActivity(userId: string) {
     setLoading(false);
   }, [userId, supabase]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);

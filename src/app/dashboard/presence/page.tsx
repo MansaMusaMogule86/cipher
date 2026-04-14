@@ -32,8 +32,6 @@ export default async function PresencePage() {
   // ── Server-side initial data fetch ────────────────────────────────────────
   // Runs on the server so the page is populated on first render (no loading flash).
   const now = Date.now();
-  const twoMinAgo = new Date(now - TWO_MIN_MS).toISOString();
-  const fifteenMinAgo = new Date(now - FIFTEEN_MIN_MS).toISOString();
 
   const [presenceResult, activityResult, spendResult] = await Promise.all([
     supabase
