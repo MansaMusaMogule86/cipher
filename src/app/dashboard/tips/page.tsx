@@ -6,6 +6,8 @@ import TipsClient from "./TipsClient";
 import type { Tip } from "@/lib/tips";
 import DashboardShell from "@/app/dashboard/components/DashboardShell";
 
+export const dynamic = "force-dynamic";
+
 function getServiceDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

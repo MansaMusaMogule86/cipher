@@ -6,6 +6,8 @@ import SeriesClient from "@/app/dashboard/series/SeriesClient";
 import type { Series, SeriesEpisode } from "@/lib/series";
 import DashboardShell from "@/app/dashboard/components/DashboardShell";
 
+export const dynamic = "force-dynamic";
+
 function getServiceDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

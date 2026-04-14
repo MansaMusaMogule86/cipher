@@ -7,6 +7,8 @@ import { createUnlock } from "@/lib/unlocks";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import SuccessClient from "./SuccessClient";
 
+export const dynamic = "force-dynamic";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Offer = {
