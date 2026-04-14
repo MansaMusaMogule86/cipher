@@ -2,8 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import { Card, SectionLabel, Spinner, t, StatusPill, ago } from '../shared';
 
+interface SystemMessage {
+  id: string;
+  content: string;
+  sender_type: string;
+  created_at: string;
+  creator?: { display_name: string };
+}
+
 export function SystemMessagesSystem() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<SystemMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [content, setContent] = useState('');

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { track } from "@/lib/analytics/track";
 
 /* ─────────────────────────────────────────
@@ -536,7 +537,7 @@ export default function Home() {
                     {cta}
                   </button>
                 ) : (
-                  <a href="/apply" onClick={() => {
+                  <Link href="/apply" onClick={() => {
                       if (name === 'Sovereign') track.legendCtaClicked();
                       else if (name === 'Emperor') track.apexAccessRequested();
                       else track.pricingViewed();
@@ -555,7 +556,7 @@ export default function Home() {
                       ? { background: "var(--gold)", color: "#0a0800", border: "1px solid var(--gold)" }
                       : { background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid var(--border-mid)" }
                     )
-                  }}>{cta}</a>
+                  }}>{cta}</Link>
                 )}
               </div>
             ))}

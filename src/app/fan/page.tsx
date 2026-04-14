@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -88,9 +89,7 @@ export default async function FanHomePage() {
               {memberships.map((m) => {
                 const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
                 return (
-                  <a
-                    key={m.creator_id}
-                    href={`/${profile?.handle ?? m.creator_id}`}
+                  <Link key={m.creator_id} href={`/${profile?.handle ?? m.creator_id}`}
                     className="group flex items-center gap-3 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
                   >
                     <div className="w-10 h-10 rounded-full bg-neutral-800 overflow-hidden shrink-0">
@@ -108,16 +107,16 @@ export default async function FanHomePage() {
                       </p>
                       <p className="text-xs text-neutral-500 capitalize">{m.tier}</p>
                     </div>
-                  </a>
+                  </Link>
                 );
               })}
             </div>
           ) : (
             <p className="text-sm text-neutral-500">
               You haven&apos;t followed any creators yet.{" "}
-              <a href="/apply" className="text-[#c8a96e] hover:underline">
+              <Link href="/apply" className="text-[#c8a96e] hover:underline">
                 Explore creators
-              </a>
+              </Link>
             </p>
           )}
         </section>
@@ -129,9 +128,9 @@ export default async function FanHomePage() {
               <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-widest">
                 Recent Purchases
               </h2>
-              <a href="/fan/purchases" className="text-xs text-[#c8a96e] hover:underline">
+              <Link href="/fan/purchases" className="text-xs text-[#c8a96e] hover:underline">
                 View all
-              </a>
+              </Link>
             </div>
             <div className="space-y-2">
               {recentPurchases.map((p) => (
@@ -163,13 +162,13 @@ export default async function FanHomePage() {
               { href: "/fan/messages", label: "Messages" },
               { href: "/fan/settings", label: "Settings" },
             ].map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] text-sm text-center transition-colors"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
         </section>

@@ -2,8 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { ClipboardList } from 'lucide-react';
 import { t, Card, Spinner, ago } from '../shared';
 
+interface AuditLog {
+  id: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  created_at: string;
+  details?: {
+    reason?: string;
+    [key: string]: unknown;
+  };
+}
+
 export function AuditLogsSystem() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('');
   const [uniqueActions, setUniqueActions] = useState<string[]>([]);

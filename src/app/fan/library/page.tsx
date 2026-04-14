@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function FanLibraryPage() {
@@ -40,9 +41,9 @@ export default async function FanLibraryPage() {
               {unlocks?.length ?? 0} item{(unlocks?.length ?? 0) !== 1 ? "s" : ""} unlocked
             </p>
           </div>
-          <a href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
+          <Link href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
             ← Back
-          </a>
+          </Link>
         </div>
 
         {unlocks && unlocks.length > 0 ? (

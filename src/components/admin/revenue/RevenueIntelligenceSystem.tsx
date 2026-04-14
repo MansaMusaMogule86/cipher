@@ -2,8 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Brain, ChevronRight } from 'lucide-react';
 import { PlatformStats, Creator, t, Spinner, Card, SectionLabel, TierPill, StatusPill, $f } from '../shared';
 
+interface Transaction {
+  id: string;
+  status: string;
+  amount: number;
+  creator?: { display_name: string };
+  content?: { title: string };
+}
+
 export function RevenueIntelligenceSystem({ stats }: { stats: PlatformStats | null }) {
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
 

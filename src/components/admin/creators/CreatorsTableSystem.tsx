@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Download, Ban, UserPlus } from 'lucide-react';
 import { Creator, t, fetchJsonOrThrow, Spinner, Card, TierPill, StatusPill, Pill, numf, $f } from '../shared';
 
-export function CreatorsTableSystem({ onAction }: { onAction: (m: any) => void }) {
+interface ActionModal {
+  type: string;
+  target?: Creator;
+  targets?: Creator[];
+  amount?: number;
+}
+
+export function CreatorsTableSystem({ onAction }: { onAction: (m: ActionModal) => void }) {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function FanMessagesPage() {
@@ -36,9 +37,9 @@ export default async function FanMessagesPage() {
               <p className="text-sm text-[#c8a96e] mt-1">{unreadCount} unread</p>
             )}
           </div>
-          <a href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
+          <Link href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
             ← Back
-          </a>
+          </Link>
         </div>
 
         {messages && messages.length > 0 ? (

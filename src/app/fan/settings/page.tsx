@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRoleFromUser } from "@/lib/auth/role-guards";
 
@@ -24,9 +25,9 @@ export default async function FanSettingsPage() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <a href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
+          <Link href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
             ← Back
-          </a>
+          </Link>
         </div>
 
         {/* Account info */}
@@ -82,12 +83,12 @@ export default async function FanSettingsPage() {
             <p className="text-xs text-neutral-400">
               Apply for a creator account to start monetizing your audience with 88% payouts.
             </p>
-            <a
+            <Link
               href="/apply"
               className="inline-block mt-2 text-xs bg-[#c8a96e] text-black font-medium px-4 py-2 rounded-full hover:bg-[#d4b97e] transition-colors"
             >
               Apply now
-            </a>
+            </Link>
           </section>
         )}
 

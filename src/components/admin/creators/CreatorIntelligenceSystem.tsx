@@ -2,14 +2,30 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Eye, AlertTriangle, Star, Ban, X, Mail, Link, Wallet, UserCheck, FileText } from 'lucide-react';
 import { Creator, t, fetchJsonOrThrow, scoreCreator, ScoreBar, LifecyclePill, TierPill, Pill, Card, SectionLabel, Spinner, numf, $f, ago } from '../shared';
 
-export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: any) => void }) {
+interface Transaction {
+  status: string;
+  amount: number;
+}
+
+interface SocialAccount {
+  platform: string;
+  follower_count?: number;
+}
+
+interface AdminNote {
+  id: string;
+  note: string;
+  created_at: string;
+}
+
+export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: ActionModal) => void }) {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'churn' | 'revenue' | 'engagement' | 'health'>('churn');
   const [filter, setFilter] = useState<'all' | 'at_risk' | 'dormant' | 'no_conversion'>('all');
   const [selected, setSelected] = useState<Creator | null>(null);
-  const [details, setDetails] = useState<any>(null);
+  const [details, setDetails] = useState<Record<string, unknown> | null>(null);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -78,7 +94,7 @@ export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: any) => 
             <button key={f} onClick={() => setFilter(f)} style={{ padding: '8px 14px', borderRadius: 6, background: filter === f ? t.goldGlow : t.faint, border: `1px solid ${filter === f ? t.gold : t.rim}`, color: filter === f ? t.gold : t.muted, fontFamily: t.mono, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, cursor: 'pointer' }}>{f.replace('_', ' ')}</button>
           ))}
         </div>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} style={{ padding: '9px 12px', background: t.surface, border: `1px solid ${t.rim2}`, borderRadius: 6, color: t.white, fontFamily: t.mono, fontSize: 11, outline: 'none' }}>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as 'churn' | 'revenue' | 'engagement' | 'health')} style={{ padding: '9px 12px', background: t.surface, border: `1px solid ${t.rim2}`, borderRadius: 6, color: t.white, fontFamily: t.mono, fontSize: 11, outline: 'none' }}>
           <option value="churn">Sort: Churn Risk</option><option value="revenue">Sort: Revenue</option><option value="engagement">Sort: Engagement</option><option value="health">Sort: Health</option>
         </select>
       </div>
@@ -173,7 +189,7 @@ export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: any) => 
                     { label: 'Content Items', value: details.stats?.totalContent, color: t.white },
                     { label: 'Fans', value: details.stats?.totalFans, color: t.blue },
                     { label: 'Sales', value: details.stats?.totalTransactions, color: t.white },
-                    { label: 'Total Volume', value: $f((details.transactions || []).reduce((s: number, tx: any) => s + (tx.status === 'success' ? (tx.amount || 0) : 0), 0)), color: t.gold },
+                    { label: 'Total Volume', value: $f((details.transactions as Transaction[] || []).reduce((s: number, tx: Transaction) => s + (tx.status === 'success' ? (tx.amount || 0) : 0), 0)), color: t.gold },
                   ].map(s => (
                     <Card key={s.label} style={{ padding: 14, border: s.label === 'Fans' ? `1px solid ${t.blue}33` : undefined }}>
                       <div style={{ fontFamily: t.mono, fontSize: 9, color: t.dim, textTransform: 'uppercase' as const, letterSpacing: '0.15em', marginBottom: 6 }}>{s.label}</div>
@@ -222,7 +238,7 @@ export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: any) => 
                 {details.socials?.length > 0 && (
                   <Card><SectionLabel>Connected Socials</SectionLabel>
                     <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6 }}>
-                      {details.socials.map((s: any) => <div key={s.platform} style={{ padding: '5px 10px', background: t.faint, borderRadius: 5, fontFamily: t.mono, fontSize: 10, color: t.muted }}><span style={{ textTransform: 'capitalize' }}>{s.platform}</span> · <span style={{ color: t.gold }}>{numf(s.follower_count || 0)}</span></div>)}
+                      {details.socials.map((s: SocialAccount) => <div key={s.platform} style={{ padding: '5px 10px', background: t.faint, borderRadius: 5, fontFamily: t.mono, fontSize: 10, color: t.muted }}><span style={{ textTransform: 'capitalize' }}>{s.platform}</span> · <span style={{ color: t.gold }}>{numf(s.follower_count || 0)}</span></div>)}
                     </div>
                   </Card>
                 )}
@@ -230,7 +246,7 @@ export function CreatorIntelligenceSystem({ onAction }: { onAction: (m: any) => 
                 {details.notes?.length > 0 && (
                   <Card style={{ padding: 14 }}><SectionLabel>Admin Notes ({details.notes.length})</SectionLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 160, overflowY: 'auto' }}>
-                      {details.notes.slice(0, 5).map((n: any) => (
+                      {details.notes.slice(0, 5).map((n: AdminNote) => (
                         <div key={n.id} style={{ padding: '8px 10px', background: t.faint, borderRadius: 6, borderLeft: `2px solid ${t.goldDim}` }}>
                           <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, marginBottom: 3 }}>{n.note}</div>
                           <div style={{ fontFamily: t.mono, fontSize: 9, color: t.dim }}>{ago(n.created_at)}</div>

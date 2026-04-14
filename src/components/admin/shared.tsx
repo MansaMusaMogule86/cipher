@@ -45,7 +45,7 @@ export interface Creator {
 }
 export interface RealtimeEvent {
   id: string; event_type: string; user_id: string; user_type: string;
-  metadata: any; severity: 'info' | 'warning' | 'critical'; created_at: string;
+  metadata: Record<string, unknown>; severity: 'info' | 'warning' | 'critical'; created_at: string;
 }
 export type System = 'overview' | 'creator-intel' | 'revenue-intel' | 'risk' | 'funnel' | 'creators' | 'fans' | 'messages' | 'audit';
 
@@ -173,44 +173,47 @@ export function Spinner({ style }: { style?: React.CSSProperties }) {
 
 export function GMVTicker({ value }: { value: number }) {
   const [display, setDisplay] = useState(0);
-  const ref = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (ref.current !== null) {
-      clearInterval(ref.current);
-      ref.current = null;
-    }
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     if (value === 0) {
       setDisplay(0);
       return;
     }
 
-    let curr = 0;
-    const step = value / 60;
-    ref.current = setInterval(() => {
-      curr += step;
-      if (curr >= value) {
-        setDisplay(value);
-        if (ref.current !== null) {
-          clearInterval(ref.current);
-          ref.current = null;
-        }
-        return;
-      }
-      setDisplay(Math.floor(curr));
-    }, 16) as unknown as number;
+    const startTime = Date.now();
+    const duration = 1000;
 
-    return () => {
-      if (ref.current !== null) {
-        clearInterval(ref.current);
-        ref.current = null;
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setDisplay(Math.floor(value * progress));
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick);
       }
     };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [value]);
+
   return <span style={{ fontFamily: t.serif, fontSize: 42, fontWeight: 300, color: t.goldBright, letterSpacing: '-0.02em', lineHeight: 1 }}>{$f(display)}</span>;
 }
 
-export function ActionModal({ modal, onClose, onSuccess }: { modal: any; onClose: () => void; onSuccess: () => void }) {
+interface ActionModalData {
+  type: string;
+  target?: Creator;
+  targets?: Creator[];
+  amount?: number;
+}
+
+export function ActionModal({ modal, onClose, onSuccess }: { modal: ActionModalData; onClose: () => void; onSuccess: () => void }) {
   const [reason, setReason] = useState('');
   const [tier, setTier] = useState('cipher');
   const [loading, setLoading] = useState(false);
@@ -224,12 +227,12 @@ export function ActionModal({ modal, onClose, onSuccess }: { modal: any; onClose
     setErrorMessage('');
     setLoading(true);
     try {
-      const body: any = { action: modal.type, targetType: 'creator', targetId: modal.target?.user_id, reason: reason || 'Admin action' };
+      const body: Record<string, unknown> = { action: modal.type, targetType: 'creator', targetId: modal.target?.user_id, reason: reason || 'Admin action' };
       if (modal.type === 'ban_creator') body.details = { duration_days: 30 };
       if (modal.type === 'change_tier') body.details = { tier };
       if (modal.type === 'force_withdrawal') body.details = { amount: modal.amount, method: 'manual' };
       if (modal.type === 'ban_creators_bulk') {
-        body.details = { duration_days: 30, targets: (modal.targets || []).map((x: any) => x.user_id) };
+        body.details = { duration_days: 30, targets: (modal.targets || []).map((x: Creator) => x.user_id) };
       }
 
       const r = await fetch('/api/admin/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function FanPurchasesPage() {
@@ -31,9 +32,9 @@ export default async function FanPurchasesPage() {
               Lifetime spend: <span className="text-[#c8a96e]">${total.toFixed(2)}</span>
             </p>
           </div>
-          <a href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
+          <Link href="/fan" className="text-xs text-neutral-500 hover:text-white transition-colors">
             ← Back
-          </a>
+          </Link>
         </div>
 
         {purchases && purchases.length > 0 ? (
