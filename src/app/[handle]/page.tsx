@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import FanPageClient from "@/app/components/FanPageClient";
 
+export const dynamic = "force-dynamic";
+
 function getServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }: HandleParams): Promise<Metada
   const supabase = getServiceClient();
   if (!supabase) {
     return {
-      title: "CIPHER - Creator Platform",
+      title: "MULUK - Creator Platform",
       description: "Exclusive content. Anonymous access. cipher.co",
     };
   }
@@ -40,18 +42,18 @@ export async function generateMetadata({ params }: HandleParams): Promise<Metada
 
   if (!creator) {
     return {
-      title: "CIPHER - Creator Platform",
+      title: "MULUK - Creator Platform",
       description: "Exclusive content. Anonymous access. cipher.co",
     };
   }
 
   return {
-    title: `@${clean} on CIPHER - ${creator.name}`,
+    title: `@${clean} on MULUK - ${creator.name}`,
     description: creator.bio || "Exclusive content. Anonymous access. cipher.co",
     openGraph: {
-      title: `@${clean} on CIPHER`,
-      description: creator.bio || "Exclusive content on CIPHER",
-      url: `https://cipher.co/@${clean}`,
+      title: `@${clean} on MULUK`,
+      description: creator.bio || "Exclusive content on MULUK",
+      url: `https://muluk.vip/@${clean}`,
       ...(creator.avatar_url && { images: [{ url: creator.avatar_url }] }),
     },
   };

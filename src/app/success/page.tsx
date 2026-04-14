@@ -7,6 +7,8 @@ import { createUnlock } from "@/lib/unlocks";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import SuccessClient from "./SuccessClient";
 
+export const dynamic = "force-dynamic";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Offer = {
@@ -36,7 +38,7 @@ const fetchOffer = cache(async (id: string): Promise<Offer | null> => {
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
-  title: "Purchase Confirmed — CIPHER",
+  title: "Purchase Confirmed — MULUK",
   description: "Your purchase was successful.",
 };
 
@@ -88,7 +90,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           display: "block",
         }}
       >
-        CIPHER
+        MULUK
       </Link>
 
       {/* Card */}
@@ -277,7 +279,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           color: "rgba(255,255,255,0.12)",
         }}
       >
-        Secured by CIPHER · Powered by Whop
+        Secured by MULUK · Powered by Whop
       </div>
 
       {/* Client component: logs unlock event (fire-and-forget) */}

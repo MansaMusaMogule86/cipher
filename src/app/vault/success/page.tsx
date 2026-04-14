@@ -265,7 +265,7 @@ export default function VaultSuccessPage() {
                 />
               )}
               {isVideo && (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
+                 
                 <video
                   src={unlock.signed_url}
                   controls
