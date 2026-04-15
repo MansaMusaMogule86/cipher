@@ -1,12 +1,29 @@
 "use client";
 
 import { useTransition, useState, useRef } from "react";
-import { adminLoginAction } from "./actions";
 
 export default function AdminLoginPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  async function adminLoginAction(formData: FormData): Promise<{ error?: string }> {
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      return { error: data.message || "Invalid credentials" };
+    }
+
+    return { error: undefined };
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -16,9 +33,10 @@ export default function AdminLoginPage() {
 
     startTransition(async () => {
       const result = await adminLoginAction(formData);
-      // adminLoginAction redirects on success — we only reach here on error
       if (result?.error) {
         setError(result.error);
+      } else {
+        window.location.href = "/admin/dashboard";
       }
     });
   }

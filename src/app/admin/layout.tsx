@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getRoleFromUser, isEmailInAdminAllowlist } from "@/lib/auth/role-guards";
-import { hasMinimumRole } from "@/lib/auth/permissions";
+import { getRoleFromUser, isEmailInAdminAllowlist, hasMinimumRole } from "@/lib/auth/role-guards";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },

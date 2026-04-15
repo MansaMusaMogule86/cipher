@@ -12,8 +12,8 @@ import {
   shouldNoIndex,
   isEmailInAdminAllowlist,
   getRoleFromUser,
+  hasMinimumRole,
 } from "@/lib/auth/role-guards";
-import { hasMinimumRole } from "@/lib/auth/permissions";
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS

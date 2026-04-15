@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@supabase/supabase-js";
-import { getSafeProfile } from "@/lib/auth/safe-profile";
 import TipsClient from "./TipsClient";
 import type { Tip } from "@/lib/tips";
 import DashboardShell from "@/app/dashboard/components/DashboardShell";
@@ -13,6 +12,17 @@ function getLocalServiceDb() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+async function getSafeProfile() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { user: null, profile: null };
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
+  return { user, profile };
 }
 
 export default async function TipsDashboardPage() {

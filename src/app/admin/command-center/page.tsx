@@ -3,8 +3,53 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Shield, AlertTriangle, RefreshCw, Activity, Zap, TrendingUp, Users, DollarSign, Radio } from 'lucide-react';
-import { PlatformStats, RealtimeEvent, t, fetchJsonOrThrow, $f } from '@/components/admin/shared';
 import Link from 'next/link';
+
+// ─── Theme tokens (inlined from shared) ───────────────────────────────────────
+const t = {
+  void: '#060610',
+  deep: '#0d0d18',
+  rim: 'rgba(255,255,255,0.06)',
+  rim2: 'rgba(255,255,255,0.09)',
+  gold: '#c8a96e',
+  goldDim: 'rgba(200,169,110,0.5)',
+  goldGlow: 'rgba(200,169,110,0.08)',
+  white: '#fff',
+  dim: 'rgba(255,255,255,0.35)',
+  muted: 'rgba(255,255,255,0.22)',
+  faint: 'rgba(255,255,255,0.03)',
+  green: '#22c55e',
+  red: '#ef4444',
+  redD: 'rgba(239,68,68,0.1)',
+  sans: "var(--font-body, 'Outfit', sans-serif)",
+  mono: "var(--font-mono, 'DM Mono', monospace)",
+  serif: "var(--font-display, serif)",
+};
+
+// ─── Types (inlined from shared) ───────────────────────────────────────────────
+interface PlatformStats {
+  users: { totalFans: number; activeCreators: number; totalCreators: number; pendingApplications: number; onlineFans?: number };
+  finances: { totalGMV: number; revenue30d: number; totalTransactions: number };
+}
+
+interface RealtimeEvent {
+  id?: number;
+  event_type: string;
+  message?: string;
+  severity: 'info' | 'warning' | 'critical';
+  created_at: string;
+}
+
+// ─── Helpers (inlined from shared) ───────────────────────────────────────────
+async function fetchJsonOrThrow<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function $f(cents: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
 
 // ─── Live event ticker ────────────────────────────────────────────────────────
 function EventTicker({ events }: { events: RealtimeEvent[] }) {

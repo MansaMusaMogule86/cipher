@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CreatorProvider } from "@/app/dashboard/context/CreatorContext";
-import { CommandBar } from "./CommandBar";
 
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
@@ -466,10 +465,6 @@ export default function DashboardShell({ children, userEmail, userId, handle }: 
           {children}
         </CreatorProvider>
       </div>
-
-      {/* Global command bar — accessible from any dashboard page via "/" */}
-      <CommandBar userId={userId} />
-
     </>
   );
 }

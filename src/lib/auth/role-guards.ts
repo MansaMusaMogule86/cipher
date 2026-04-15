@@ -1,6 +1,20 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import type { UserRole } from "./permissions";
-import { isValidRole } from "./permissions";
+
+// ─────────────────────────────────────────────────────────────
+// ROLE TYPES & UTILITIES (inlined from deleted permissions.ts)
+// ─────────────────────────────────────────────────────────────
+
+export type UserRole = "fan" | "creator" | "admin" | "super_admin";
+
+export function isValidRole(role: unknown): role is UserRole {
+  return role === "fan" || role === "creator" || role === "admin" || role === "super_admin";
+}
+
+function hasMinimumRole(role: UserRole, minimum: UserRole): boolean {
+  const roleHierarchy: Record<UserRole, number> = { fan: 0, creator: 1, admin: 2, super_admin: 3 };
+  return roleHierarchy[role] >= roleHierarchy[minimum];
+}
+export { hasMinimumRole };
 
 // ─────────────────────────────────────────────────────────────
 // ROUTE CLASSIFICATION

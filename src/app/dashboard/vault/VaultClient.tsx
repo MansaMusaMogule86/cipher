@@ -1,10 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { AssetsTab } from "./components/AssetsTab";
-import { ActiveDropsTab } from "./components/ActiveDropsTab";
-import { PerformanceTab } from "./components/PerformanceTab";
-import type { VaultItem } from "./components/AssetsTab";
 
 type Tab = "assets" | "drops" | "performance";
 
@@ -14,10 +10,73 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "performance", label: "Performance" },
 ];
 
+interface VaultItem {
+  id: string;
+  title: string;
+  description?: string;
+  price_cents: number;
+  content_type: string;
+  preview_path?: string;
+  status: string;
+  purchase_count?: number;
+  created_at: string;
+}
+
 interface Props {
   creatorId: string;
   handle: string;
   initialItems: VaultItem[];
+}
+
+function AssetsTab({ initialItems }: { initialItems: VaultItem[] }) {
+  if (initialItems.length === 0) {
+    return (
+      <div style={{ padding: "60px 32px", textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>NO ASSETS YET</div>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--dim)", marginTop: 12 }}>Upload your first content to start selling.</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: "32px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+      {initialItems.map((item) => (
+        <div key={item.id} style={{ background: "var(--deep)", border: "1px solid var(--rim)", borderRadius: 10, padding: "20px" }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--white)", marginBottom: 8 }}>{item.title}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--gold)" }}>${(item.price_cents / 100).toFixed(2)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActiveDropsTab({ userId }: { userId: string }) {
+  return (
+    <div style={{ padding: "60px 32px", textAlign: "center" }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>NO ACTIVE DROPS</div>
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--dim)", marginTop: 12 }}>Create a drop to release limited content.</p>
+    </div>
+  );
+}
+
+function PerformanceTab({ items }: { items: VaultItem[] }) {
+  const totalRevenue = items.reduce((sum, item) => sum + (item.price_cents * (item.purchase_count ?? 0)), 0);
+  const totalSales = items.reduce((sum, item) => sum + (item.purchase_count ?? 0), 0);
+  return (
+    <div style={{ padding: "32px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+      <div style={{ background: "var(--deep)", border: "1px solid var(--rim)", borderRadius: 10, padding: "24px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em", marginBottom: 8 }}>TOTAL REVENUE</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 24, color: "var(--gold)" }}>${(totalRevenue / 100).toFixed(2)}</div>
+      </div>
+      <div style={{ background: "var(--deep)", border: "1px solid var(--rim)", borderRadius: 10, padding: "24px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em", marginBottom: 8 }}>TOTAL SALES</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 24, color: "var(--gold)" }}>{totalSales}</div>
+      </div>
+      <div style={{ background: "var(--deep)", border: "1px solid var(--rim)", borderRadius: 10, padding: "24px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em", marginBottom: 8 }}>TOTAL ITEMS</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 24, color: "var(--gold)" }}>{items.length}</div>
+      </div>
+    </div>
+  );
 }
 
 export default function VaultClient({ creatorId, handle, initialItems }: Props) {

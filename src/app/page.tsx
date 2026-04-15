@@ -3,7 +3,22 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 
+const mono = { fontFamily: "var(--font-mono, 'DM Mono', monospace)" } as const;
+const gold = { color: "var(--gold, #c8a96e)" } as const;
+const muted = { color: "var(--muted, rgba(255,255,255,0.45))" } as const;
+const dim = { color: "var(--dim, rgba(255,255,255,0.22))" } as const;
+const disp = { fontFamily: "var(--font-display, serif)" } as const;
+
+function WaitlistForm(_props: { id: string }) {
+  return (
+    <div style={{ padding: "24px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8 }}>
+      <p style={{ ...mono, fontSize: 12, color: "var(--dim)" }}>Join the waitlist</p>
+    </div>
+  );
+}
+
 export default function Home() {
+  
   /* entrance animations */
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".hero-anim");
