@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import FloatingGenerateLinkButton from "@/app/dashboard/components/FloatingGenerateLinkButton";
 
 export const metadata: Metadata = {
   robots: {
@@ -20,5 +21,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <FloatingGenerateLinkButton />
+    </>
+  );
 }
