@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CreatorProvider } from "@/app/dashboard/context/CreatorContext";
 import { CommandBar } from "./CommandBar";
-import InstantLinkButton from "@/components/InstantLinkButton";
+
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 const mono = { fontFamily: "var(--font-mono, 'DM Mono', monospace)" } as const;
@@ -470,8 +470,6 @@ export default function DashboardShell({ children, userEmail, userId, handle }: 
       {/* Global command bar — accessible from any dashboard page via "/" */}
       <CommandBar userId={userId} />
 
-      {/* Floating instant pay link generator */}
-      <InstantLinkButton />
     </>
   );
 }
