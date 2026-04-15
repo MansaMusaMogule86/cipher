@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/apply)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)",
+      "Bash(cmd *)",
+      "Bash(curl -s -o /dev/null -w \"Port: %{url_effective} Status: %{http_code}\" http://localhost:3000/)",
+      "Bash(powershell.exe *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard/members)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard/direct-line)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard/referrals)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard/subscriptions)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/dashboard/monetization/pricing)",
+      "Bash(npx supabase *)",
+      "Bash(curl *)",
+      "Bash(git commit *)",
+      "Bash(grep -E \"^\\\\s*\\(○|ƒ\\)\\\\s+/\\(dashboard|$| \\)\")"
+    ]
+  }
+}
