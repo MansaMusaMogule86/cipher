@@ -393,7 +393,7 @@ export default function DashboardShell({ children, userEmail, userId, handle }: 
                 </Link>
               )}
               <Link
-                href="/dashboard?section=settings"
+                href="/dashboard/settings"
                 style={{
                   display: "flex",
                   alignItems: "center",
