@@ -1,19 +1,19 @@
 #!/bin/bash
-# CIPHER Local Development Setup
+# MULUK Local Development Setup
 
 set -e
 
-echo "🔧 CIPHER Local Setup"
-echo "====================="
+echo "MULUK Local Setup"
+echo "================="
 echo ""
 
 # Check Node version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$NODE_VERSION" -lt "18" ]; then
-  echo "❌ Node.js 18+ required (found $(node -v))"
+  echo "Node.js 18+ required (found $(node -v))"
   exit 1
 fi
-echo "✅ Node.js $(node -v)"
+echo "Node.js $(node -v)"
 
 # Install dependencies
 echo ""
@@ -23,10 +23,10 @@ npm install
 # Check for .env.local
 if [ ! -f ".env.local" ]; then
   echo ""
-  echo "⚠️  .env.local not found"
+  echo ".env.local not found"
   echo "Copying from .env.example..."
   cp .env.example .env.local
-  echo "📝 Please edit .env.local with your API keys"
+  echo "Please edit .env.local with your API keys"
 fi
 
 echo ""
