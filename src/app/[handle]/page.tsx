@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: HandleParams): Promise<Metada
     .select("name, bio, category, avatar_url")
     .eq("handle", clean)
     .eq("status", "approved")
-    .single();
+    .maybeSingle();
 
   if (!creator) {
     return {
@@ -72,14 +72,18 @@ export default async function HandlePage({
     notFound();
   }
 
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorError } = await supabase
     .from("creator_applications")
     .select("user_id, name, handle, bio, category, tier, phantom_mode, created_at, avatar_url, banner_url, website, location")
     .eq("handle", clean)
     .eq("status", "approved")
-    .single();
+    .maybeSingle();
 
-  if (!creator) notFound();
+  if (creatorError) {
+    console.error("[fan-page] creator fetch error", creatorError);
+  }
+
+  if (!creator) return notFound();
 
   const { data: contentItems } = await supabase
     .from("content_items_v2")
@@ -106,6 +110,16 @@ export default async function HandlePage({
     .select("platform, platform_username, profile_url")
     .eq("creator_id", creator.user_id)
     .order("connected_at", { ascending: false });
+
+  // Fetch recurring subscription offers (identified by "/" in price_label)
+  const { data: subscriptionOffers } = await supabase
+    .from("offers")
+    .select("id, title, price_label, description, whop_link")
+    .eq("creator_id", creator.user_id)
+    .eq("status", "published")
+    .ilike("price_label", "%/%")
+    .order("created_at", { ascending: false })
+    .limit(3);
 
   const payment = typeof query.payment === "string" ? query.payment : undefined;
   const codeFromQuery = typeof query.code === "string" ? query.code : undefined;
@@ -146,6 +160,13 @@ export default async function HandlePage({
       }))}
       initialPaymentSuccess={payment === "success"}
       initialCode={codeFromQuery}
+      subscriptionOffers={(subscriptionOffers ?? []).map((o) => ({
+        id:          o.id as string,
+        title:       o.title as string,
+        price_label: (o.price_label ?? null) as string | null,
+        description: (o.description ?? null) as string | null,
+        whop_link:   (o.whop_link ?? null) as string | null,
+      }))}
     />
   );
 }

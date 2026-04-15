@@ -2,9 +2,9 @@ import DashboardShell from "@/app/dashboard/components/DashboardShell";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "Fans — MULUK" };
+export const metadata = { title: "Subscriptions — MULUK" };
 
-export default async function MembersPage() {
+export default async function SubscriptionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -17,7 +17,7 @@ export default async function MembersPage() {
 
   return (
     <DashboardShell userEmail={user.email ?? ""} userId={user.id} handle={creatorProfile?.handle ?? undefined}>
-      <ComingSoon label="FANS" sub="See everyone who has unlocked your content, subscribed, or tipped." />
+      <ComingSoon label="SUBSCRIPTIONS" sub="Create recurring membership tiers. Fans pay monthly to unlock ongoing access." />
     </DashboardShell>
   );
 }

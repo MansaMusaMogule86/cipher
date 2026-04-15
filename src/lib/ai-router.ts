@@ -49,7 +49,6 @@ export const TASK_TIERS: Record<string, TaskTier> = {
   content_creation: "balanced",
   price_analysis: "fast",
   chat_assistant: "fast",
-  image_analysis: "balanced",
   caption_generation: "fast",
   handle_generation: "fast",
   niche_recommendation: "fast",
@@ -133,7 +132,7 @@ export class AIRouter {
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+              "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://muluk.vip",
               "X-Title": "MULUK Platform",
             },
             body: JSON.stringify({

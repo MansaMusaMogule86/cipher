@@ -46,7 +46,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["src/app/admin/**/*.tsx", "src/app/api/admin/**/*.ts"],
+    files: ["src/app/admin/**/*.tsx", "src/app/api/admin/**/*.ts", "src/components/admin/**/*.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "react-hooks/set-state-in-effect": "off",

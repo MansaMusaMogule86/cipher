@@ -1,137 +1,72 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-import { useRevenueSummary }   from "./command-center/hooks/useRevenueSummary";
-import { useRadar }            from "./command-center/hooks/useRadar";
-import { useLiveActivity }     from "./command-center/hooks/useLiveActivity";
-import { useActiveDrops }      from "./command-center/hooks/useActiveDrops";
-import { useTodayAction }      from "./command-center/hooks/useTodayAction";
-import { useRevenueTriggers }  from "./command-center/hooks/useRevenueTriggers";
+const mono = { fontFamily: "var(--font-mono, 'DM Mono', monospace)" } as const;
 
-import { TodayActionCard }      from "./command-center/components/TodayActionCard";
-import { RevenueTriggersPanel } from "./command-center/components/RevenueTriggersPanel";
-import { LiveActivityFeed }     from "./command-center/components/LiveActivityFeed";
-import { HighValueRadar }       from "./command-center/components/HighValueRadar";
-import { ActiveDrops }          from "./command-center/components/ActiveDrops";
-import { StatusBar }            from "./command-center/components/StatusBar";
-import { CreateDropModal }      from "./vault/components/CreateDropModal";
+const QUICK_LINKS = [
+  { label: "Content",     sub: "Upload & manage drops",       href: "/dashboard/content",     icon: "▤" },
+  { label: "Vault",       sub: "Premium digital files",       href: "/dashboard/vault",        icon: "▦" },
+  { label: "Earnings",    sub: "Live monetization signals",   href: "/dashboard/signals",      icon: "◈" },
+  { label: "Bookings",    sub: "1-on-1 session calendar",     href: "/dashboard/bookings",     icon: "◷" },
+  { label: "Referrals",   sub: "Lifetime referral network",   href: "/dashboard/referrals",    icon: "◉" },
+  { label: "Analytics",   sub: "Presence & engagement",       href: "/dashboard/presence",     icon: "◌" },
+  { label: "Series",      sub: "Episodic content drops",      href: "/dashboard/series",       icon: "▣" },
+  { label: "Tip Jar",     sub: "Fan tips & donations",        href: "/dashboard/tips",         icon: "◬" },
+  { label: "Commissions", sub: "Accept work requests",        href: "/dashboard/commissions",  icon: "◫" },
+  { label: "Brand Deals", sub: "Partnerships & sponsorships", href: "/dashboard/deals",        icon: "◯" },
+  { label: "Settings",    sub: "Account & integrations",      href: "/dashboard/settings",     icon: "◔" },
+];
 
-import { fmt }              from "./_lib/helpers";
-import { GOLD, mono, body } from "./_lib/tokens";
-import type { FeedEvent }   from "./_lib/types";
-
-export default function DashboardHome({ userId }: { userId: string }) {
-  const router = useRouter();
-  const [showCreateDrop, setShowCreateDrop] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
-
-  const { stats, refresh: refreshStats } = useRevenueSummary(userId);
-  const radar    = useRadar(userId);
-  const { feed, loading: feedLoading } = useLiveActivity(userId);
-  const { drops, loading: dropsLoading, refresh: refreshDrops } = useActiveDrops(userId);
-  const { action }    = useTodayAction(userId);
-  const { triggers, refresh: refreshTriggers } = useRevenueTriggers(userId);
-
-  useEffect(() => { radar.init(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleFeedItemClick = useCallback((item: FeedEvent) => {
-    if (item.type === "message")
-      router.push(`/dashboard/direct-line?to=${item.user_id}`);
-    else if (item.type === "purchase" || item.type === "drop_click")
-      router.push("/dashboard/vault");
-    else
-      router.push("/dashboard/members");
-  }, [router]);
-
-  const handleDropCreated = useCallback(() => {
-    setShowCreateDrop(false);
-    refreshDrops();
-    refreshStats();
-    refreshTriggers();
-  }, [refreshDrops, refreshStats, refreshTriggers]);
-
-  // ── Focus mode ───────────────────────────────────────────────────────────────
-  if (focusMode) {
-    return (
-      <div style={{ padding: "24px 28px", maxWidth: "800px", margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "32px" }}>
-          <div style={{ ...mono, fontSize: "11px", letterSpacing: "0.2em", color: GOLD }}>FOCUS MODE</div>
-          <button
-            type="button"
-            onClick={() => setFocusMode(false)}
-            style={{ ...mono, fontSize: "10px", color: "rgba(255,255,255,0.35)", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", padding: "5px 12px", cursor: "pointer" }}
-          >
-            EXIT FOCUS
-          </button>
-        </div>
-        <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <div style={{ ...mono, fontSize: "56px", color: GOLD, fontWeight: 200, letterSpacing: "-0.02em", lineHeight: 1 }}>
-            {fmt(stats.todayRevenue)}
-          </div>
-          <div style={{ ...body, fontSize: "13px", color: "rgba(255,255,255,0.3)", marginTop: "8px" }}>
-            today · {stats.onlineNow} online now
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-          <HighValueRadar tab={radar.tab} data={radar.data.slice(0, 5)} loading={radar.loading} onTabChange={radar.switchTab} />
-          <ActiveDrops drops={drops.slice(0, 1)} loading={false} onCreateDrop={() => setShowCreateDrop(true)} />
-        </div>
-        {showCreateDrop && (
-          <CreateDropModal userId={userId} onClose={() => setShowCreateDrop(false)} onCreated={handleDropCreated} />
-        )}
-      </div>
-    );
-  }
-
-  // ── Full dashboard ───────────────────────────────────────────────────────────
+export default function DashboardHome() {
   return (
-    <div style={{ padding: "24px 28px", maxWidth: "1280px", margin: "0 auto" }}>
+    <div style={{ padding: "40px 36px", minHeight: "100vh", background: "#08080f" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-        <div>
-          <h1 style={{ ...mono, fontSize: "11px", letterSpacing: "0.22em", color: GOLD, margin: "0 0 2px" }}>
-            DASHBOARD
-          </h1>
-          <p style={{ ...body, fontSize: "12px", color: "rgba(255,255,255,0.25)", margin: 0 }}>
-            Today&apos;s revenue intelligence
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setFocusMode(true)}
-          style={{ ...mono, fontSize: "10px", letterSpacing: "0.12em", color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "6px", padding: "6px 12px", cursor: "pointer" }}
-        >
-          FOCUS MODE
-        </button>
+      <div style={{ marginBottom: "36px" }}>
+        <h1 style={{ ...mono, fontSize: "20px", fontWeight: 500, color: "var(--gold, #c8a96e)", letterSpacing: "0.18em", margin: 0 }}>
+          CREATOR OS
+        </h1>
+        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)", marginTop: "6px", fontFamily: "var(--font-body, 'Outfit', sans-serif)", letterSpacing: "0.02em" }}>
+          Everything you need to run your business.
+        </p>
       </div>
 
-      <div style={{ marginBottom: "20px" }}>
-        <StatusBar stats={stats} />
+      {/* Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" }}>
+        {QUICK_LINKS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              padding: "18px 20px",
+              background: "rgba(255,255,255,0.025)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: "8px",
+              textDecoration: "none",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(200,169,110,0.07)";
+              e.currentTarget.style.borderColor = "rgba(200,169,110,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.025)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+            }}
+          >
+            <span style={{ fontSize: "13px", color: "rgba(200,169,110,0.5)" }}>{item.icon}</span>
+            <span style={{ ...mono, fontSize: "12px", color: "rgba(255,255,255,0.75)", letterSpacing: "0.08em", fontWeight: 500 }}>
+              {item.label}
+            </span>
+            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.28)", fontFamily: "var(--font-body, 'Outfit', sans-serif)" }}>
+              {item.sub}
+            </span>
+          </Link>
+        ))}
       </div>
-
-      <div style={{ marginBottom: "20px" }}>
-        <TodayActionCard
-          stats={stats}
-          action={action}
-          onCreateDrop={() => setShowCreateDrop(true)}
-        />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-        <RevenueTriggersPanel triggers={triggers} />
-        <LiveActivityFeed feed={feed} loading={feedLoading} onItemClick={handleFeedItemClick} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "16px" }}>
-        <HighValueRadar tab={radar.tab} data={radar.data} loading={radar.loading} onTabChange={radar.switchTab} />
-        <ActiveDrops drops={drops} loading={dropsLoading} onCreateDrop={() => setShowCreateDrop(true)} />
-      </div>
-
-      {showCreateDrop && (
-        <CreateDropModal userId={userId} onClose={() => setShowCreateDrop(false)} onCreated={handleDropCreated} />
-      )}
     </div>
   );
 }
