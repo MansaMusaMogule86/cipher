@@ -1,1 +1,0 @@
-UI_RULES.md
