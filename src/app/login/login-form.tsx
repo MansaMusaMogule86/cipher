@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { identifyUser, track } from "@/lib/analytics/track";
@@ -40,6 +40,19 @@ export default function LoginForm() {
   const [error, setError] = useState("");
 
   const nextPath = searchParams.get("next") || "/dashboard";
+
+  // Track referral click when landing via ?ref= link
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      void fetch("/api/referrals/click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referral_code: ref, source: "login_page" }),
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

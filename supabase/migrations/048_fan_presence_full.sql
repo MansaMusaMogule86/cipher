@@ -20,10 +20,8 @@ CREATE TABLE IF NOT EXISTS fan_presence (
   current_page   TEXT,          -- '/handle/vault', '/handle/series', etc.
   session_id     TEXT,          -- random per-tab session identifier
 
-  -- Computed helper columns (updated via trigger)
-  is_online      BOOLEAN     NOT NULL GENERATED ALWAYS AS (
-                   last_seen_at > (NOW() - INTERVAL '2 minutes')
-                 ) STORED,
+  -- is_online is kept fresh by the update trigger below
+  is_online      BOOLEAN     NOT NULL DEFAULT FALSE,
 
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -38,8 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_fan_presence_online
   WHERE is_online = TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_fan_presence_recent
-  ON fan_presence (creator_id, last_seen_at DESC)
-  WHERE last_seen_at > (NOW() - INTERVAL '15 minutes');
+  ON fan_presence (creator_id, last_seen_at DESC);
 
 ALTER TABLE fan_presence ENABLE ROW LEVEL SECURITY;
 
@@ -108,20 +105,21 @@ CREATE POLICY "fan_activity_service_all"
   WITH CHECK (auth.role() = 'service_role');
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. updated_at auto-refresh trigger on fan_presence
+-- 3. Triggers on fan_presence: keep updated_at and is_online fresh
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION update_fan_presence_updated_at()
+CREATE OR REPLACE FUNCTION update_fan_presence_cols()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at = NOW();
+  NEW.is_online  = (NEW.last_seen_at > (NOW() - INTERVAL '2 minutes'));
   RETURN NEW;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_fan_presence_updated_at ON fan_presence;
 CREATE TRIGGER trg_fan_presence_updated_at
-  BEFORE UPDATE ON fan_presence
-  FOR EACH ROW EXECUTE FUNCTION update_fan_presence_updated_at();
+  BEFORE INSERT OR UPDATE ON fan_presence
+  FOR EACH ROW EXECUTE FUNCTION update_fan_presence_cols();
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. Enable Realtime on fan_presence so creator dashboards get live updates
@@ -133,7 +131,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE fan_activity;
 -- 5. Purge job: delete fan_activity older than 30 days to control table size
 --    Runs via pg_cron if enabled, otherwise safe to run manually.
 -- ─────────────────────────────────────────────────────────────────────────────
-DO $$
+DO $outer$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'
@@ -141,9 +139,9 @@ BEGIN
     PERFORM cron.schedule(
       'purge-old-fan-activity',
       '0 3 * * *',
-      $$DELETE FROM fan_activity WHERE created_at < NOW() - INTERVAL '30 days'$$
+      $q$DELETE FROM fan_activity WHERE created_at < NOW() - INTERVAL '30 days'$q$
     );
   END IF;
-END $$;
+END $outer$;
 
 COMMIT;

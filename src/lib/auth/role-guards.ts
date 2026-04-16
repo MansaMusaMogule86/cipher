@@ -22,7 +22,7 @@ export { hasMinimumRole };
 
 export const PUBLIC_ROUTES = new Set(["/", "/login", "/apply"]);
 
-const PUBLIC_PREFIXES   = ["/book", "/booking", "/r", "/vault", "/commission", "/tips", "/series"];
+const PUBLIC_PREFIXES   = ["/book", "/booking", "/r", "/vault", "/commission", "/tips", "/series", "/join"];
 const ADMIN_PREFIXES    = ["/admin"];
 const DEBUG_PREFIXES    = ["/debug"];
 const CREATOR_PREFIXES  = ["/dashboard", "/onboarding"];

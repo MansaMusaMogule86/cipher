@@ -69,7 +69,7 @@ export async function GET() {
     const { data: referrals, error: referralError } = await db
       .from("referrals")
       .select(
-        "id, referred_id, status, created_at"
+        "id, referred_id, status, created_at, total_revenue_generated, signup_at, first_purchase_at, source"
       )
       .eq("referrer_id", user.id)
       .order("created_at", { ascending: false });
@@ -122,7 +122,7 @@ export async function GET() {
     const clicks = eventRows.filter((e) => e.event_type === "link_click").length;
     const signups = rows.filter((r) => r.status === "signed_up" || r.status === "converted").length;
     const conversions = rows.filter((r) => r.status === "converted").length;
-    const revenue = 0;
+    const revenue = rows.reduce((sum, r) => sum + (r.total_revenue_generated ?? 0), 0);
 
     const tableRows = rows.map((r) => {
       const referred = r.referred_id ? profileMap.get(r.referred_id) : null;
@@ -130,11 +130,11 @@ export async function GET() {
         id: r.id,
         referred_id: r.referred_id,
         referral_code: referralCode,
-        source: null,
+        source: r.source ?? null,
         status: r.status,
-        signup_at: null,
-        first_purchase_at: null,
-        total_revenue_generated: 0,
+        signup_at: r.signup_at ?? null,
+        first_purchase_at: r.first_purchase_at ?? null,
+        total_revenue_generated: r.total_revenue_generated ?? 0,
         created_at: r.created_at,
         last_activity_at: lastActivityMap.get(r.id) ?? r.created_at,
         referred_user: {
@@ -151,7 +151,7 @@ export async function GET() {
 
     return NextResponse.json({
       referral_code: referralCode,
-      referral_link: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/login?mode=signup&ref=${referralCode}`,
+      referral_link: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${referralCode}`,
       kpis: {
         total_referrals: rows.length,
         total_conversions: conversions,

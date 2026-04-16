@@ -49,8 +49,15 @@ CREATE INDEX IF NOT EXISTS idx_referrals_referrer_created
 CREATE INDEX IF NOT EXISTS idx_referrals_status_created
   ON referrals (status, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_referrals_referral_code
-  ON referrals (referral_code);
+-- Only create index if column already exists (migration 050 adds it if missing)
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'referrals' AND column_name = 'referral_code'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_referrals_referral_code ON referrals (referral_code);
+  END IF;
+END $$;
 
 -- ── Referral events ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS referral_events (
