@@ -100,14 +100,11 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 function ContentDisplay({ content_value, content_type }: { content_value: string; content_type: string }) {
   if (content_type === "file") {
-    // Use URL.pathname for reliable extension matching (avoids false positives from
-    // query params or multi-segment paths like /img.png/download.php)
     let ext = "";
     try {
       const u = new URL(content_value);
       ext = u.pathname.toLowerCase();
     } catch {
-      // Not a valid absolute URL — fall back to the raw string
       ext = content_value.toLowerCase();
     }
     const isImage = /\.(png|jpe?g|webp|gif)$/.test(ext);
@@ -255,7 +252,7 @@ export default function PayLinkClient({
         setUnlockedContent(json.content_value);
         setState("unlocked");
       } else {
-        setState("verify"); // fall through to email
+        setState("verify");
       }
     } catch {
       setState("verify");
@@ -297,7 +294,7 @@ export default function PayLinkClient({
         : null;
     const since = storedTs
       ? new Date(parseInt(storedTs, 10)).toISOString()
-      : new Date(Date.now() - 3 * 60 * 1000).toISOString(); // fallback: 3 min ago
+      : new Date(Date.now() - 3 * 60 * 1000).toISOString();
     setState("unlocking");
     pollForToken(since);
   }
@@ -305,7 +302,7 @@ export default function PayLinkClient({
   function pollForToken(since: string) {
     if (pollingRef.current) clearInterval(pollingRef.current);
     let attempts = 0;
-    const maxAttempts = 15; // 30 seconds at 2-second intervals
+    const maxAttempts = 15;
     pollingRef.current = setInterval(async () => {
       attempts++;
       try {
@@ -320,16 +317,12 @@ export default function PayLinkClient({
           return;
         }
       } catch (error) {
-        console.error("[PayLinkClient] token polling failed", {
-          payment_link_id: link.id,
-          attempts,
-          error,
-        });
+        console.error("[PayLinkClient] token polling failed", { payment_link_id: link.id, attempts, error });
       }
       if (attempts >= maxAttempts) {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
-        setState("verify"); // fallback: email form
+        setState("verify");
       }
     }, 2000);
   }
@@ -407,15 +400,7 @@ export default function PayLinkClient({
                 <div style={{ ...disp, fontSize: "26px", color: "rgba(255,255,255,0.92)", lineHeight: 1.2 }}>
                   {link.title}
                 </div>
-                <div
-                  style={{
-                    ...mono,
-                    fontSize: "22px",
-                    color: "var(--gold, #c8a96e)",
-                    flexShrink: 0,
-                    lineHeight: 1,
-                  }}
-                >
+                <div style={{ ...mono, fontSize: "22px", color: "var(--gold, #c8a96e)", flexShrink: 0, lineHeight: 1 }}>
                   {money.format(link.price / 100)}
                 </div>
               </div>
@@ -454,70 +439,32 @@ export default function PayLinkClient({
                     ACCESS GRANTED — PURCHASE VERIFIED
                   </span>
                 </div>
-                <ContentDisplay
-                  content_value={unlockedContent}
-                  content_type={link.content_type}
-                />
+                <ContentDisplay content_value={unlockedContent} content_type={link.content_type} />
               </div>
             )}
 
             {/* ── REDIRECTING ── */}
             {state === "redirecting" && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "14px",
-                  padding: "24px 0",
-                  color: "rgba(255,255,255,0.5)",
-                }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "24px 0", color: "rgba(255,255,255,0.5)" }}>
                 <Spinner />
-                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>
-                  REDIRECTING TO CHECKOUT…
-                </span>
+                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>REDIRECTING TO CHECKOUT…</span>
               </div>
             )}
 
             {/* ── UNLOCKING (polling for webhook) ── */}
             {state === "unlocking" && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "14px",
-                  padding: "24px 0",
-                  color: "rgba(255,255,255,0.5)",
-                }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "24px 0", color: "rgba(255,255,255,0.5)" }}>
                 <Spinner />
-                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>
-                  UNLOCKING YOUR CONTENT…
-                </span>
-                <span style={{ ...mono, fontSize: "10px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)" }}>
-                  Confirming your payment
-                </span>
+                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>UNLOCKING YOUR CONTENT…</span>
+                <span style={{ ...mono, fontSize: "10px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)" }}>Confirming your payment</span>
               </div>
             )}
 
             {/* ── CHECKING ── */}
             {state === "checking" && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "14px",
-                  padding: "24px 0",
-                  color: "rgba(255,255,255,0.5)",
-                }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "24px 0", color: "rgba(255,255,255,0.5)" }}>
                 <Spinner />
-                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>
-                  VERIFYING PURCHASE…
-                </span>
+                <span style={{ ...mono, fontSize: "11px", letterSpacing: "0.14em" }}>VERIFYING PURCHASE…</span>
               </div>
             )}
 
