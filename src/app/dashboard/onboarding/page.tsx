@@ -60,7 +60,8 @@ export default async function CreatorOnboardingPage() {
       console.error("Failed to mark onboarding completed:", error);
       // Continue to onboarding instead of redirecting on error
       // so the check doesn't loop
-    } else if (data) {
+    } else {
+      // Successful update (no error returned)
       redirect("/dashboard");
     }
   }
