@@ -252,7 +252,6 @@ export default function CreatorOnboardingClient({ initialValues, existingAnalysi
           )}
         </section>
       </div>
-      </div>
     </div>
   );
 }
