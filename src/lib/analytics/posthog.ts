@@ -1,6 +1,5 @@
 /**
- * Legacy analytics shim — kept for backwards compatibility with hooks/useTracking.ts
- * and any other existing imports. PostHog is now initialized exclusively via
+ * Legacy analytics shim. PostHog is now initialized exclusively via
  * PostHogProvider (src/app/providers/PostHogProvider.tsx).
  * For new code, import from @/lib/analytics/track instead.
  */
